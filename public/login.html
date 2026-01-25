@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Mi To-Do App</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#5b8cff" />
+  </head>
+
+  <body>
+    <div class="app" role="application">
+      <header class="header">
+        <div>
+          <h1 class="title">Mi To-Do App</h1>
+          <p class="subtitle">Inicia sesión o crea una cuenta</p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <!-- Tabs -->
+        <div class="filters" role="tablist" style="margin-bottom: 20px;">
+          <button class="chip is-active" id="tabLogin" type="button">Iniciar Sesión</button>
+          <button class="chip" id="tabRegister" type="button">Registrarse</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form">
+          <div class="field">
+            <label class="label" for="loginUser">Usuario</label>
+            <input id="loginUser" class="input" type="text" placeholder="Tu nombre de usuario" autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label class="label" for="loginPass">Contraseña</label>
+            <input id="loginPass" class="input" type="password" placeholder="Tu contraseña" autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
+            Iniciar Sesión
+          </button>
+        </form>
+
+        <!-- Register Form (hidden by default) -->
+        <form id="registerForm" class="auth-form" style="display: none;">
+          <div class="field">
+            <label class="label" for="regUser">Usuario</label>
+            <input id="regUser" class="input" type="text" placeholder="Elige un nombre de usuario" autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label class="label" for="regEmail">Correo (opcional)</label>
+            <input id="regEmail" class="input" type="email" placeholder="tu@correo.com" autocomplete="email" />
+          </div>
+          <div class="field">
+            <label class="label" for="regPass">Contraseña</label>
+            <input id="regPass" class="input" type="password" placeholder="Mínimo 4 caracteres" autocomplete="new-password" required minlength="4" />
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
+            Crear Cuenta
+          </button>
+        </form>
+
+        <!-- Messages -->
+        <div id="message" class="message" style="margin-top: 16px; display: none;"></div>
+      </section>
+
+      <footer class="footer">
+        <span>Frontend: HTML/CSS/JS</span>
+        <span class="dot">•</span>
+        <span>Backend: Node + Express</span>
+        <span class="dot">•</span>
+        <span>DB: SQLite</span>
+      </footer>
+    </div>
+
+    <script>
+      const API_URL = '';
+      
+      // Elementos
+      const tabLogin = document.getElementById('tabLogin');
+      const tabRegister = document.getElementById('tabRegister');
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const messageDiv = document.getElementById('message');
+
+      // Si ya hay token, ir a la app
+      if (localStorage.getItem('token')) {
+        window.location.href = '/';
+      }
+
+      // Cambiar tabs
+      tabLogin.addEventListener('click', () => {
+        tabLogin.classList.add('is-active');
+        tabRegister.classList.remove('is-active');
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        hideMessage();
+      });
+
+      tabRegister.addEventListener('click', () => {
+        tabRegister.classList.add('is-active');
+        tabLogin.classList.remove('is-active');
+        registerForm.style.display = 'block';
+        loginForm.style.display = 'none';
+        hideMessage();
+      });
+
+      // Mostrar mensaje
+      function showMessage(text, isError = false) {
+        messageDiv.textContent = text;
+        messageDiv.style.display = 'block';
+        messageDiv.style.padding = '12px';
+        messageDiv.style.borderRadius = '8px';
+        messageDiv.style.backgroundColor = isError ? '#fee' : '#efe';
+        messageDiv.style.color = isError ? '#c00' : '#060';
+        messageDiv.style.border = isError ? '1px solid #fcc' : '1px solid #cfc';
+      }
+
+      function hideMessage() {
+        messageDiv.style.display = 'none';
+      }
+
+      // Login
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById('loginUser').value.trim();
+        const password = document.getElementById('loginPass').value;
+
+        try {
+          const res = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, password })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            showMessage(data.error || 'Error al iniciar sesión', true);
+            return;
+          }
+
+          // Guardar token y datos del usuario
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          
+          showMessage('¡Bienvenido! Redirigiendo...');
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 1000);
+
+        } catch (err) {
+          showMessage('Error de conexión', true);
+        }
+      });
+
+      // Register
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById('regUser').value.trim();
+        const correo = document.getElementById('regEmail').value.trim();
+        const password = document.getElementById('regPass').value;
+
+        try {
+          const res = await fetch(`${API_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, password, correo })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            showMessage(data.error || 'Error al registrar', true);
+            return;
+          }
+
+          showMessage('¡Cuenta creada! Ahora puedes iniciar sesión.');
+          // Cambiar a tab de login
+          setTimeout(() => {
+            tabLogin.click();
+            document.getElementById('loginUser').value = nombre;
+          }, 1500);
+
+        } catch (err) {
+          showMessage('Error de conexión', true);
+        }
+      });
+    </script>
+  </body>
+</html>

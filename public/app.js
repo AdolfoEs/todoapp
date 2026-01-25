@@ -1,5 +1,42 @@
 const API_URL = "/tasks";
 
+// --- AUTH ---
+const token = localStorage.getItem('token');
+const user = JSON.parse(localStorage.getItem('user') || 'null');
+
+// Si no hay token, redirigir al login
+if (!token) {
+  window.location.href = '/login.html';
+}
+
+// Función para obtener headers con autenticación
+function getAuthHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+}
+
+// Función para cerrar sesión
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/login.html';
+}
+
+// Mostrar nombre de usuario si existe el elemento
+window.addEventListener('DOMContentLoaded', () => {
+  const userNameEl = document.getElementById('userName');
+  if (userNameEl && user) {
+    userNameEl.textContent = user.nombre;
+  }
+  
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+});
+
 // --- DOM ---
 const input = document.getElementById("taskInput");
 const startInput = document.getElementById("startTime");
