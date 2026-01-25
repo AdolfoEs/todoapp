@@ -1,0 +1,345 @@
+const API_URL = "/tasks";
+
+// --- DOM ---
+const input = document.getElementById("taskInput");
+const startInput = document.getElementById("startTime");
+const endInput = document.getElementById("endTime");
+const addBtn = document.getElementById("addBtn");
+const list = document.getElementById("taskList");
+
+const counter = document.getElementById("counter");
+const emptyState = document.getElementById("emptyState");
+
+const filterAll = document.getElementById("filterAll");
+const filterPending = document.getElementById("filterPending");
+const filterDone = document.getElementById("filterDone");
+const clearDoneBtn = document.getElementById("clearDoneBtn");
+
+// --- State ---
+let tasks = [];
+let currentFilter = "all"; // all | pending | done
+
+// --- Init ---
+wireEvents();
+refresh();
+
+function wireEvents() {
+  addBtn.addEventListener("click", onAdd);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") onAdd();
+  });
+
+  filterAll?.addEventListener("click", () => setFilter("all"));
+  filterPending?.addEventListener("click", () => setFilter("pending"));
+  filterDone?.addEventListener("click", () => setFilter("done"));
+
+  clearDoneBtn?.addEventListener("click", clearCompleted);
+}
+
+function setFilter(filter) {
+  currentFilter = filter;
+
+  // marcar chip activo
+  [filterAll, filterPending, filterDone].forEach((btn) => btn?.classList.remove("is-active"));
+  if (filter === "all") filterAll?.classList.add("is-active");
+  if (filter === "pending") filterPending?.classList.add("is-active");
+  if (filter === "done") filterDone?.classList.add("is-active");
+
+  render();
+}
+
+async function refresh() {
+  try {
+    tasks = await apiGetTasks();
+  } catch (e) {
+    console.error(e);
+    tasks = [];
+    alert('Error al obtener tareas. Revisa tu conexión.');
+  }
+  render();
+}
+
+function render() {
+  const visible = applyFilter(tasks, currentFilter);
+
+  // lista
+  list.innerHTML = "";
+  visible.forEach((t) => list.appendChild(renderTaskItem(t)));
+
+  // contador + empty
+  const total = tasks.length;
+  const done = tasks.filter((t) => Number(t.completed) === 1).length;
+  const pending = total - done;
+
+  if (counter) {
+    counter.textContent = `${total} tareas • ${pending} pendientes • ${done} completadas`;
+  }
+
+  if (emptyState) {
+    emptyState.classList.toggle("is-hidden", total !== 0);
+  }
+
+  // habilitar/deshabilitar limpiar completadas
+  if (clearDoneBtn) {
+    clearDoneBtn.disabled = done === 0;
+    clearDoneBtn.style.opacity = done === 0 ? "0.55" : "1";
+    clearDoneBtn.style.cursor = done === 0 ? "not-allowed" : "pointer";
+  }
+}
+
+function applyFilter(all, filter) {
+  if (filter === "pending") return all.filter((t) => Number(t.completed) === 0);
+  if (filter === "done") return all.filter((t) => Number(t.completed) === 1);
+  return all;
+}
+
+function renderTaskItem(task) {
+  const li = document.createElement("li");
+  li.className = "item";
+
+  const isDone = Number(task.completed) === 1;
+
+  // checkbox
+  const check = document.createElement("button");
+  check.className = "check";
+  check.type = "button";
+  check.setAttribute("data-checked", String(isDone));
+  check.setAttribute("aria-label", isDone ? "Marcar como pendiente" : "Marcar como completada");
+
+  const checkMark = document.createElement("span");
+  checkMark.className = "checkmark";
+  checkMark.textContent = "✓";
+  check.appendChild(checkMark);
+
+  check.addEventListener("click", async () => {
+    try {
+      await apiSetCompleted(task.id, !isDone);
+    } catch (e) {
+      console.error(e);
+      alert('Error al actualizar tarea');
+      return;
+    }
+    await refresh();
+  });
+
+  // texto
+  const textWrap = document.createElement("div");
+  textWrap.className = "text";
+
+  const title = document.createElement("div");
+  title.className = "task-title" + (isDone ? " is-done" : "");
+  title.textContent = task.title;
+
+  // doble click para editar
+  title.title = "Doble click para editar";
+  title.addEventListener("dblclick", () => startEditTitle(li, task));
+
+  const date = document.createElement("div");
+  date.className = "task-date";
+  const whenParts = [];
+  if (task.start_time) whenParts.push(task.start_time);
+  if (task.end_time) whenParts.push(task.end_time);
+  const whenText = whenParts.length ? ` — ${whenParts.join(' - ')}` : '';
+  date.textContent = formatDate(task.created_at) + whenText;
+
+  textWrap.appendChild(title);
+  textWrap.appendChild(date);
+
+  // acciones
+  const actions = document.createElement("div");
+  actions.className = "actions";
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "icon-btn danger";
+  delBtn.type = "button";
+  delBtn.textContent = "🗑";
+  delBtn.title = "Eliminar";
+
+  delBtn.addEventListener("click", async () => {
+    if (!confirm('¿Eliminar esta tarea?')) return;
+    try {
+      await apiDeleteTask(task.id);
+    } catch (e) {
+      console.error(e);
+      alert('Error al eliminar tarea');
+      return;
+    }
+    await refresh();
+  });
+
+  actions.appendChild(delBtn);
+
+  li.appendChild(check);
+  li.appendChild(textWrap);
+  li.appendChild(actions);
+
+  return li;
+}
+
+function startEditTitle(li, task) {
+  // reemplazar el título por un input
+  const textWrap = li.querySelector(".text");
+  if (!textWrap) return;
+
+  const titleEl = textWrap.querySelector(".task-title");
+  if (!titleEl) return;
+
+  const oldText = task.title;
+
+  const inputEdit = document.createElement("input");
+  inputEdit.className = "edit-input";
+  inputEdit.value = oldText;
+  inputEdit.maxLength = 200;
+
+  // limpiar contenido y poner input
+  textWrap.replaceChild(inputEdit, titleEl);
+  inputEdit.focus();
+  inputEdit.select();
+
+  const finish = async (mode) => {
+    const newTitle = inputEdit.value.trim();
+
+    // cancelar -> volver
+    if (mode === "cancel") {
+      await refresh();
+      return;
+    }
+
+    // si quedó vacío, no guardar
+    if (!newTitle) {
+      await refresh();
+      return;
+    }
+
+    // si no cambió, no llamar API
+    if (newTitle === oldText) {
+      await refresh();
+      return;
+    }
+
+    try {
+      await apiUpdateTitle(task.id, newTitle);
+    } catch (e) {
+      console.error(e);
+      alert('Error al editar título');
+      await refresh();
+      return;
+    }
+    await refresh();
+  };
+
+  inputEdit.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") finish("save");
+    if (e.key === "Escape") finish("cancel");
+  });
+
+  inputEdit.addEventListener("blur", () => finish("save"));
+}
+
+async function onAdd() {
+  const text = (input.value || "").trim();
+  if (!text) return;
+
+  // read optional times in HH:MM (24h) format
+  const start_time = startInput?.value ? startInput.value : null;
+  const end_time = endInput?.value ? endInput.value : null;
+
+  try {
+    await apiCreateTask(text, start_time, end_time);
+  } catch (e) {
+    console.error(e);
+    alert('Error al crear tarea');
+    return;
+  }
+
+  input.value = "";
+  if (startInput) startInput.value = "";
+  if (endInput) endInput.value = "";
+  input.focus();
+
+  await refresh();
+}
+
+async function clearCompleted() {
+  const done = tasks.filter((t) => Number(t.completed) === 1);
+  if (done.length === 0) return;
+
+  // borrar una por una (simple y claro para comenzar)
+  for (const t of done) {
+    try {
+      await apiDeleteTask(t.id);
+    } catch (e) {
+      console.error('Error borrando tarea', t.id, e);
+    }
+  }
+  await refresh();
+}
+
+// --- API ---
+async function apiGetTasks() {
+  try {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error("Error al obtener tareas");
+    return res.json();
+  } catch (e) {
+    throw new Error('Network error: ' + e.message);
+  }
+}
+
+async function apiCreateTask(title, start_time = null, end_time = null) {
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, start_time, end_time }),
+    });
+    if (!res.ok) throw new Error("Error al crear tarea");
+    return res.json();
+  } catch (e) {
+    throw new Error('Network error: ' + e.message);
+  }
+}
+
+async function apiSetCompleted(id, completed) {
+  try {
+    const res = await fetch(`${API_URL}/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed }),
+    });
+    if (!res.ok) throw new Error("Error al actualizar estado");
+  } catch (e) {
+    throw new Error('Network error: ' + e.message);
+  }
+}
+
+async function apiUpdateTitle(id, title) {
+  // backend espera PUT para actualizar título
+  try {
+    const res = await fetch(`${API_URL}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) throw new Error("Error al editar título");
+  } catch (e) {
+    throw new Error('Network error: ' + e.message);
+  }
+}
+
+async function apiDeleteTask(id) {
+  try {
+    const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Error al eliminar tarea");
+  } catch (e) {
+    throw new Error('Network error: ' + e.message);
+  }
+}
+
+// --- Utils ---
+function formatDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
+}

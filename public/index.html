@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mi To-Do App</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#5b8cff" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+  </head>
+
+  <body>
+    <div class="app" role="application" aria-labelledby="appTitle">
+      <header class="header">
+        <div>
+          <h1 id="appTitle" class="title">Mi lista de tareas</h1>
+          <p class="subtitle">Crea, completa y elimina tareas. Se guarda localmente.</p>
+        </div>
+        <div class="badge">Local + SQLite</div>
+      </header>
+
+      <section class="panel">
+        <div class="row">
+          <div style="display: grid; gap:8px;">
+            <div class="field">
+              <label class="label" for="taskInput">Nueva tarea</label>
+              <input
+                id="taskInput"
+                class="input"
+                type="text"
+                placeholder="Ej: hacer ejercicio"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="time-row" style="display:flex;gap:8px;align-items:center;">
+              <div class="field" style="flex:1;">
+                <label class="label" for="startTime">Desde</label>
+                <input id="startTime" class="input" type="time" />
+              </div>
+              <div class="field" style="flex:1;">
+                <label class="label" for="endTime">Hasta</label>
+                <input id="endTime" class="input" type="time" />
+              </div>
+            </div>
+          </div>
+
+          <button id="add+Btn" class="btn btn-primary" type="button" aria-label="Agregar tarea">
+            Agregar
+          </button>
+        </div>
+
+        <div class="toolbar">
+          <div class="filters" role="tablist" aria-label="Filtros de tareas">
+            <button class="chip is-active" id="filterAll" type="button">Todas</button>
+            <button class="chip" id="filterPending" type="button">Pendientes</button>
+            <button class="chip" id="filterDone" type="button">Completadas</button>
+          </div>
+
+          <div class="right">
+            <button id="clearDoneBtn" class="btn btn-ghost" type="button" title="Borra todas las completadas">
+              Limpiar completadas
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="meta">
+          <span id="counter" class="counter">0 tareas</span>
+          <span class="hint">Tip: doble click en el texto para editar.</span>
+        </div>
+
+        <ul id="taskList" class="list" aria-label="Lista de tareas"></ul>
+
+        <div id="emptyState" class="empty is-hidden" aria-live="polite">
+          <div class="empty__icon" aria-hidden="true">✓</div>
+          <div class="empty__title">No hay tareas aún</div>
+          <div class="empty__text">Escribe una tarea arriba y presiona "Agregar".</div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>Frontend: HTML/CSS/JS</span>
+        <span class="dot">•</span>
+        <span>Backend: Node + Express</span>
+        <span class="dot">•</span>
+        <span>DB: SQLite</span>
+      </footer>
+    </div>
+
+    <!-- Service Worker registration disabled temporarily to avoid serving cached assets on mobile.
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (err) {
+            console.error('ServiceWorker registration failed: ', err);
+          });
+        });
+      }
+    </script>
+    -->
+    <script src="./app.js"></script>
+  </body>
+</html>
