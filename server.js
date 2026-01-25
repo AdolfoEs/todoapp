@@ -20,9 +20,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// DB (archivo local)
-const db = new sqlite3.Database('./database.db', (err) => {
+// DB (archivo local - usar /tmp en Railway para escritura)
+const dbPath = process.env.RAILWAY_ENVIRONMENT ? '/tmp/database.db' : './database.db';
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) console.error('Error opening DB:', err.message);
+  else console.log('Database connected at:', dbPath);
 });
 
 db.serialize(() => {
