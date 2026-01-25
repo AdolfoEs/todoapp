@@ -31,11 +31,7 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background:
-    radial-gradient(1200px 800px at 10% 10%, rgba(14, 221, 41, 0.14), transparent 40%),
-    radial-gradient(900px 700px at 90% 20%, rgba(42, 211, 124, 0.10), transparent 45%),
-    radial-gradient(800px 800px at 60% 90%, rgba(255, 91, 110, 0.08), transparent 45%),
-    var(--bg);
+  background: green;
   min-height: 100vh;
   display: flex;
   justify-content: center;
