@@ -6,7 +6,10 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: ['https://sunny-babka-8a1b11.netlify.app', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+}));
 app.use(express.json());
 
 // Servir frontend estático

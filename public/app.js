@@ -1,4 +1,4 @@
-const API_URL = "/tasks";
+const API_URL = "https://todoapp-production-399a.up.railway.app/tasks";
 
 // --- DOM ---
 const input = document.getElementById("taskInput");
