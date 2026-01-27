@@ -34,7 +34,10 @@
           </div>
           <div class="field">
             <label class="label" for="loginPass">Contraseña</label>
-            <input id="loginPass" class="input" type="password" placeholder="Tu contraseña" autocomplete="current-password" required />
+            <div style="position: relative; width: 100%;">
+              <input id="loginPass" class="input" type="password" placeholder="Tu contraseña" autocomplete="current-password" required style="padding-right: 45px; width: 100%;" />
+              <button type="button" id="toggleLoginPass" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
             Iniciar Sesión
@@ -53,10 +56,16 @@
           </div>
           <div class="field">
             <label class="label" for="regPass">Contraseña</label>
-            <input id="regPass" class="input" type="password" placeholder="Contraseña segura" autocomplete="new-password" required minlength="8" />
+            <div style="position: relative; width: 100%;">
+              <input id="regPass" class="input" type="password" placeholder="Contraseña segura" autocomplete="new-password" required minlength="8" style="padding-right: 45px; width: 100%;" />
+              <button type="button" id="toggleRegPass" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+            </div>
             <div class="field">
               <label class="label" for="regPassConfirm">Confirmar Contraseña</label>
-              <input id="regPassConfirm" class="input" type="password" placeholder="Repite tu contraseña" autocomplete="new-password" required minlength="8" />
+              <div style="position: relative; width: 100%;">
+                <input id="regPassConfirm" class="input" type="password" placeholder="Repite tu contraseña" autocomplete="new-password" required minlength="8" style="padding-right: 45px; width: 100%;" />
+                <button type="button" id="toggleRegPassConfirm" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+              </div>
               <div id="password-match" style="font-size: 12px; margin-top: 6px; display: none;"></div>
             </div>
             <div class="password-requirements" style="font-size: 12px; color: #888; margin-top: 6px;">
@@ -214,6 +223,26 @@
 
       regPassConfirmInput.addEventListener('input', checkPasswordMatch);
       regPassInput.addEventListener('input', checkPasswordMatch);
+
+      // Toggle mostrar/ocultar contraseña
+      function setupPasswordToggle(toggleBtnId, inputId) {
+        const toggleBtn = document.getElementById(toggleBtnId);
+        const input = document.getElementById(inputId);
+        
+        if (toggleBtn && input) {
+          toggleBtn.addEventListener('click', () => {
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            toggleBtn.textContent = isPassword ? '🙈' : '👁';
+            toggleBtn.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+          });
+        }
+      }
+
+      // Configurar toggles para todos los campos de contraseña
+      setupPasswordToggle('toggleLoginPass', 'loginPass');
+      setupPasswordToggle('toggleRegPass', 'regPass');
+      setupPasswordToggle('toggleRegPassConfirm', 'regPassConfirm');
 
       // Register
       registerForm.addEventListener('submit', async (e) => {
