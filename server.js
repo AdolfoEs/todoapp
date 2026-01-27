@@ -369,116 +369,80 @@ app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
   const pick = (arr, ...aliases) => {
     if (!Array.isArray(arr)) return 0;
     const a = aliases.map((s) => String(s).toLowerCase());
-    const nameOf = (x) => (x?.name || x?.title || '').toString().toLowerCase().trim();
+    const nameOf = (x) => (x?.name || x?.title || x?.titleMetric || '').toString().toLowerCase().trim();
     const amt = (x) => norm(x?.amount ?? x?.value ?? 0);
-    const found = arr.find((x) => a.includes(nameOf(x)));
+    const found = arr.find((x) => a.some((k) => nameOf(x).includes(k) || k === nameOf(x)));
     return amt(found);
   };
+  const sumFromNutrients = (arr) => {
+    if (!Array.isArray(arr)) return { c: 0, p: 0, cb: 0, f: 0 };
+    return {
+      c: pick(arr, 'calories', 'energy'),
+      p: pick(arr, 'protein'),
+      cb: pick(arr, 'carbohydrates', 'carbohydrate', 'carbs'),
+      f: pick(arr, 'fat', 'total fat')
+    };
+  };
   let calories = 0, protein = 0, carbs = 0, fat = 0;
+  let lastRaw = null;
 
   try {
-    // 1) Recipe Nutrition by Ingredients (lista → nutrición; respuesta = array por ingrediente con .nutrients)
-    const tryNutritionByIngredients = async (url) => {
-      const resp = await fetch(url);
-      if (!resp.ok) {
-        if (process.env.NODE_ENV !== 'production') console.log('NutritionByIngredients status', resp.status, await resp.text().then((t) => t.slice(0, 200)));
-        return null;
-      }
-      const data = await resp.json();
-      const items = Array.isArray(data) ? data : [];
-      let c = 0, p = 0, cb = 0, f = 0;
-      for (const item of items) {
-        const n = item.nutrients || item.nutrition?.nutrients || [];
-        c += pick(n, 'calories', 'energy');
-        p += pick(n, 'protein');
-        cb += pick(n, 'carbohydrates', 'carbohydrate', 'carbs');
-        f += pick(n, 'fat', 'total fat');
-      }
-      if (c || p || cb || f) return { calories: c, protein: p, carbs: cb, fat: f };
-      if (!Array.isArray(data) && data && typeof data === 'object')
-        return { calories: norm(data.calories ?? data.energy), protein: norm(data.protein), carbs: norm(data.carbohydrates ?? data.carbs), fat: norm(data.fat) };
-      if (process.env.NODE_ENV !== 'production' && (items.length > 0 || (data && typeof data === 'object')))
-        console.log('NutritionByIngredients structure sample:', JSON.stringify(Array.isArray(data) ? (data[0] || {}) : data).slice(0, 400));
-      return null;
-    };
-    const hasData = (r) => r && (r.calories + r.protein + r.carbs + r.fat > 0);
-    const url1 = `https://api.spoonacular.com/recipes/recipeNutritionByIngredients?${lines.map((l) => `ingredients=${encodeURIComponent(l)}`).join('&')}&apiKey=${SPOONACULAR_API_KEY}`;
-    const url2 = `https://api.spoonacular.com/recipes/recipeNutritionByIngredients?ingredients=${encodeURIComponent(lines.join(', '))}&apiKey=${SPOONACULAR_API_KEY}`;
-    const result1 = await tryNutritionByIngredients(url1);
-    if (hasData(result1)) {
-      calories = result1.calories;
-      protein = result1.protein;
-      carbs = result1.carbs;
-      fat = result1.fat;
-    } else {
-      const result2 = await tryNutritionByIngredients(url2);
-      if (hasData(result2)) {
-        calories = result2.calories;
-        protein = result2.protein;
-        carbs = result2.carbs;
-        fat = result2.fat;
+    // 1) Analyze Recipe (recetas/analizar) — devuelve nutrition.nutrients
+    const analyzeResp = await fetch(`https://api.spoonacular.com/recipes/analyze?apiKey=${SPOONACULAR_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Comida', servings: 1, ingredients: lines, instructions: '' })
+    });
+    if (analyzeResp.ok) {
+      const ad = await analyzeResp.json();
+      lastRaw = ad;
+      const nut = ad.nutrition ?? ad.nutritionSummary ?? ad;
+      const arr = nut?.nutrients ?? nut?.nutritionSummary?.nutrients ?? [];
+      const s = sumFromNutrients(Array.isArray(arr) ? arr : []);
+      if (s.c || s.p || s.cb || s.f) {
+        calories = s.c;
+        protein = s.p;
+        carbs = s.cb;
+        fat = s.f;
+      } else if (nut && typeof nut === 'object') {
+        calories = norm(nut.calories ?? nut.energy);
+        protein = norm(nut.protein);
+        carbs = norm(nut.carbohydrates ?? nut.carbs);
+        fat = norm(nut.fat);
       }
     }
 
-    // 2) Si sigue en 0, Parse Ingredients con includeNutrition
+    // 2) Parse Ingredients (analizar ingredientes) si sigue en 0
     if (calories === 0 && protein === 0 && carbs === 0 && fat === 0) {
       const body = new URLSearchParams({
         ingredientList: lines.join('\n'),
         servings: '1',
         includeNutrition: 'true'
       }).toString();
-      const parseUrl = `https://api.spoonacular.com/recipes/parseIngredients?apiKey=${SPOONACULAR_API_KEY}`;
-      const parseResp = await fetch(parseUrl, {
+      const parseResp = await fetch(`https://api.spoonacular.com/recipes/parseIngredients?apiKey=${SPOONACULAR_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body
       });
       if (parseResp.ok) {
         const parseData = await parseResp.json();
-        const parseItems = Array.isArray(parseData) ? parseData : (parseData?.ingredients || []);
-        for (const item of parseItems) {
-          const raw = item.nutrition?.nutrients ?? item.nutrients ?? item.nutrition ?? [];
-          const list = Array.isArray(raw) ? raw : [];
-          calories += pick(list, 'calories', 'energy');
-          protein += pick(list, 'protein');
-          carbs += pick(list, 'carbohydrates', 'carbohydrate', 'carbs');
-          fat += pick(list, 'fat', 'total fat');
+        lastRaw = parseData;
+        const items = Array.isArray(parseData) ? parseData : (parseData?.ingredients ?? []);
+        for (const item of items) {
+          const n = item.nutrition?.nutrients ?? item.nutrients ?? item.nutrition ?? [];
+          const s = sumFromNutrients(Array.isArray(n) ? n : []);
+          calories += s.c;
+          protein += s.p;
+          carbs += s.cb;
+          fat += s.f;
         }
       }
     }
 
-    // 3) Si sigue en 0, Analyze Recipe (ingredientes + título → nutrición en .nutrition)
-    if (calories === 0 && protein === 0 && carbs === 0 && fat === 0) {
-      const analyzeUrl = `https://api.spoonacular.com/recipes/analyze?apiKey=${SPOONACULAR_API_KEY}`;
-      const analyzeResp = await fetch(analyzeUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: 'Comida',
-          servings: 1,
-          ingredients: lines,
-          instructions: ''
-        })
-      });
-      if (analyzeResp.ok) {
-        const ad = await analyzeResp.json();
-        const nut = ad.nutrition || ad;
-        const arr = nut.nutrients ?? nut;
-        const list = Array.isArray(arr) ? arr : [];
-        calories += pick(list, 'calories', 'energy');
-        protein += pick(list, 'protein');
-        carbs += pick(list, 'carbohydrates', 'carbohydrate', 'carbs');
-        fat += pick(list, 'fat', 'total fat');
-        if (calories === 0 && protein === 0 && carbs === 0 && fat === 0 && nut && typeof nut === 'object') {
-          calories = norm(nut.calories ?? nut.energy);
-          protein = norm(nut.protein);
-          carbs = norm(nut.carbohydrates ?? nut.carbs);
-          fat = norm(nut.fat);
-        }
-      }
-    }
-
-    res.json({ calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) });
+    const out = { calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) };
+    if (out.calories + out.protein + out.carbs + out.fat === 0 && lastRaw != null)
+      out._debug = JSON.stringify(Array.isArray(lastRaw) ? lastRaw[0] : lastRaw).slice(0, 650);
+    res.json(out);
   } catch (e) {
     console.error('Spoonacular error:', e);
     res.status(500).json({ error: 'Error al calcular nutrición', details: e.message });
