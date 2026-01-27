@@ -34,6 +34,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
   else console.log('Database connected at:', dbPath);
 });
 
+// Palabras que marcan una tarea como "de comida" (botón calorías)
+const FOOD_KEYWORDS = ['almuerzo', 'cena', 'comer', 'comida', 'desayuno', 'media mañana', 'once'];
+function isFoodTask(title) {
+  if (!title || typeof title !== 'string') return 0;
+  const t = title.toLowerCase().trim();
+  return FOOD_KEYWORDS.some(kw => t.includes(kw)) ? 1 : 0;
+}
+
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS tasks (
@@ -44,11 +52,12 @@ db.serialize(() => {
       created_at TEXT NOT NULL,
       start_time TEXT,
       end_time TEXT,
+      is_food_task INTEGER DEFAULT 0,
       FOREIGN KEY (user_id) REFERENCES usuarios(id)
     )
   `);
   
-  // Migración: agregar columna user_id si la tabla ya existe sin ella
+  // Migración: agregar user_id si falta
   db.all("PRAGMA table_info(tasks)", (err, columns) => {
     if (err) {
       console.error('Error checking table structure:', err);
@@ -59,23 +68,36 @@ db.serialize(() => {
     
     if (!hasUserId) {
       console.log('Migrating: Adding user_id column to tasks table...');
-      // Primero agregar la columna (puede ser NULL temporalmente)
       db.run(`ALTER TABLE tasks ADD COLUMN user_id INTEGER`, (err) => {
-        if (err) {
-          console.error('Migration error:', err.message);
-        } else {
+        if (err) console.error('Migration error:', err.message);
+        else {
           console.log('Migration: user_id column added');
-          // Eliminar tareas sin usuario (no podemos asignarlas a nadie)
-          db.run(`DELETE FROM tasks WHERE user_id IS NULL`, (err) => {
-            if (err) {
-              console.error('Error cleaning orphaned tasks:', err);
-            } else {
-              console.log('Migration: Cleaned up tasks without user_id');
-            }
-          });
+          db.run(`DELETE FROM tasks WHERE user_id IS NULL`, () => {});
         }
       });
     }
+    // Migración: agregar is_food_task si falta
+    const hasFoodTask = columns.some(col => col.name === 'is_food_task');
+    if (!hasFoodTask) {
+      console.log('Migrating: Adding is_food_task column to tasks...');
+      db.run(`ALTER TABLE tasks ADD COLUMN is_food_task INTEGER DEFAULT 0`, (err) => {
+        if (err) console.error('Migration is_food_task:', err.message);
+        else console.log('Migration: is_food_task column added');
+      });
+    }
+    // Backfill: actualizar is_food_task en tareas existentes según el título (por si se crearon antes de la migración)
+    db.all('SELECT id, title, is_food_task FROM tasks', [], (errBackfill, rows) => {
+      if (errBackfill || !rows || !rows.length) return;
+      const toUpdate = rows.filter((r) => {
+        const want = isFoodTask(r.title) ? 1 : 0;
+        const cur = r.is_food_task == null ? 0 : Number(r.is_food_task);
+        return cur !== want;
+      });
+      toUpdate.forEach((r) => {
+        db.run('UPDATE tasks SET is_food_task = ? WHERE id = ?', [isFoodTask(r.title) ? 1 : 0, r.id]);
+      });
+      if (toUpdate.length > 0) console.log('Backfill is_food_task: actualizadas', toUpdate.length, 'tareas existentes');
+    });
   });
 });
 
@@ -89,6 +111,22 @@ db.serialize(() => {
       edad INTEGER,
       correo TEXT,
       created_at TEXT NOT NULL
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS meal_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      meal_type TEXT NOT NULL,
+      foods_text TEXT,
+      calories REAL,
+      protein REAL,
+      carbs REAL,
+      fat REAL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id),
+      FOREIGN KEY (user_id) REFERENCES usuarios(id)
     )
   `);
 });
@@ -260,9 +298,10 @@ app.post('/tasks', authenticateToken, (req, res) => {
   const end_time = req.body.end_time || null;
   if (!title) return res.status(400).json({ error: 'title required' });
   const createdAt = new Date().toISOString();
+  const is_food_task = isFoodTask(title) ? 1 : 0;
   db.run(
-    'INSERT INTO tasks (user_id, title, completed, created_at, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, title, 0, createdAt, start_time, end_time],
+    'INSERT INTO tasks (user_id, title, completed, created_at, start_time, end_time, is_food_task) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [userId, title, 0, createdAt, start_time, end_time, is_food_task],
     function (err) {
       if (err) return res.status(500).json({ error: 'DB error' });
       res.status(201).json({
@@ -273,6 +312,7 @@ app.post('/tasks', authenticateToken, (req, res) => {
         created_at: createdAt,
         start_time,
         end_time,
+        is_food_task,
       });
     }
   );
@@ -294,7 +334,8 @@ app.put('/tasks/:id', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const title = (req.body.title || '').trim();
   if (!title) return res.status(400).json({ error: 'title required' });
-  db.run('UPDATE tasks SET title = ? WHERE id = ? AND user_id = ?', [title, id, userId], function (err) {
+  const is_food_task = isFoodTask(title) ? 1 : 0;
+  db.run('UPDATE tasks SET title = ?, is_food_task = ? WHERE id = ? AND user_id = ?', [title, is_food_task, id, userId], function (err) {
     if (err) return res.status(500).json({ error: 'DB error' });
     if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);
@@ -309,6 +350,72 @@ app.delete('/tasks/:id', authenticateToken, (req, res) => {
     if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);
   });
+});
+
+// ============ NUTRICIÓN (Spoonacular) ============
+const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
+
+app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
+  if (!SPOONACULAR_API_KEY) {
+    return res.status(503).json({ error: 'Servicio de nutrición no configurado. Configura SPOONACULAR_API_KEY.' });
+  }
+  const { ingredients } = req.body || {};
+  const text = typeof ingredients === 'string' ? ingredients : '';
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (lines.length === 0) {
+    return res.status(400).json({ error: 'Escribe al menos un alimento (uno por línea)' });
+  }
+  try {
+    const body = new URLSearchParams({
+      ingredientList: lines.join('\n'),
+      servings: '1',
+      includeNutrition: 'true'
+    }).toString();
+    const url = `https://api.spoonacular.com/recipes/parseIngredients?apiKey=${SPOONACULAR_API_KEY}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return res.status(resp.status).json({ error: 'Error en Spoonacular', details: errText.slice(0, 200) });
+    }
+    const data = await resp.json();
+    let calories = 0, protein = 0, carbs = 0, fat = 0;
+    if (Array.isArray(data)) {
+      data.forEach((item) => {
+        const n = item.nutrition?.nutrients || [];
+        const byName = (name) => (n.find((x) => (x.name || '').toLowerCase() === name) || {}).amount || 0;
+        calories += byName('calories');
+        protein += byName('protein');
+        carbs += byName('carbohydrates');
+        fat += byName('fat');
+      });
+    }
+    res.json({ calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) });
+  } catch (e) {
+    console.error('Spoonacular error:', e);
+    res.status(500).json({ error: 'Error al calcular nutrición', details: e.message });
+  }
+});
+
+app.post('/api/nutrition/save', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const { task_id, meal_type, foods_text, calories, protein, carbs, fat } = req.body || {};
+  if (!task_id || !meal_type) {
+    return res.status(400).json({ error: 'task_id y meal_type son requeridos' });
+  }
+  const createdAt = new Date().toISOString();
+  db.run(
+    `INSERT INTO meal_logs (task_id, user_id, meal_type, foods_text, calories, protein, carbs, fat, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [task_id, userId, meal_type, foods_text || null, calories ?? null, protein ?? null, carbs ?? null, fat ?? null, createdAt],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      res.status(201).json({ id: this.lastID, created_at: createdAt });
+    }
+  );
 });
 
 app.listen(PORT, '0.0.0.0', () => {

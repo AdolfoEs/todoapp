@@ -93,6 +93,40 @@
       </footer>
     </div>
 
+    <!-- Modal 1: tipo de comida -->
+    <div id="modalMealType" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalMealTypeTitle">
+        <h2 id="modalMealTypeTitle" class="modal-title">Tipo de comida</h2>
+        <div class="modal-meal-btns">
+          <button type="button" class="btn btn-primary modal-meal-btn" data-meal="desayuno">Desayuno</button>
+          <button type="button" class="btn btn-primary modal-meal-btn" data-meal="media_manana">Media Mañana</button>
+          <button type="button" class="btn btn-primary modal-meal-btn" data-meal="almuerzo">Almuerzo</button>
+          <button type="button" class="btn btn-primary modal-meal-btn" data-meal="cena">Cena</button>
+        </div>
+        <button type="button" class="modal-close" onclick="window.closeModalMealType?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
+    <!-- Modal 2: manual / foto -->
+    <div id="modalNutrition" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal modal-nutrition" role="dialog" aria-modal="true" aria-labelledby="modalNutritionTitle">
+        <h2 id="modalNutritionTitle" class="modal-title">Calorías y macros</h2>
+        <div class="modal-tabs">
+          <button type="button" class="modal-tab is-active" data-tab="manual">Escribir alimentos</button>
+          <button type="button" class="modal-tab" data-tab="foto" disabled title="Próximamente">Subir foto</button>
+        </div>
+        <div class="modal-tab-content" id="tabManual">
+          <label class="label">Un alimento por línea (ej: 2 huevos, 100g pollo)</label>
+          <textarea id="nutritionIngredients" class="input modal-textarea" rows="4" placeholder="2 huevos&#10;100g pollo"></textarea>
+          <div class="modal-nutrition-actions">
+            <button type="button" id="nutritionCalcBtn" class="btn btn-primary">Calcular</button>
+          </div>
+        </div>
+        <div id="nutritionResult" class="nutrition-result is-hidden"></div>
+        <button type="button" class="modal-close" onclick="window.closeModalNutrition?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
     <!-- Service Worker registration disabled temporarily to avoid serving cached assets on mobile.
     <script>
       if ('serviceWorker' in navigator) {

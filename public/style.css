@@ -429,3 +429,70 @@ input[type="time"].input {
   padding: 12px 0 0;
 }
 .dot { opacity: 0.6; }
+
+/* Modales calorías */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.modal-overlay.is-hidden { display: none; }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  position: relative;
+  box-shadow: var(--shadow);
+}
+.modal-title { margin: 0 0 16px; font-size: 1.1rem; }
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+}
+.modal-close:hover { color: var(--text); }
+.modal-meal-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.modal-meal-btn { flex: 1 1 45%; }
+.modal-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.modal-tab {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.modal-tab.is-active { background: var(--primary-2); color: var(--primary); border-color: var(--primary); }
+.modal-tab:disabled { opacity: 0.5; cursor: not-allowed; }
+.modal-textarea { width: 100%; resize: vertical; min-height: 80px; }
+.modal-nutrition-actions { margin-top: 12px; }
+.nutrition-result {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--panel-2);
+  border-radius: 10px;
+  font-size: 14px;
+}
+.nutrition-result.is-hidden { display: none; }
+.nutrition-result strong { color: var(--primary); }
+.actions .icon-btn.calories { margin-right: 4px; }

@@ -204,6 +204,16 @@ function renderTaskItem(task) {
     await refresh();
   });
 
+  if (task.is_food_task === 1 || task.is_food_task === true) {
+    const calBtn = document.createElement("button");
+    calBtn.className = "icon-btn calories";
+    calBtn.type = "button";
+    calBtn.textContent = "🔥";
+    calBtn.title = "Calorías";
+    calBtn.addEventListener("click", () => openModalMealType(task));
+    actions.appendChild(calBtn);
+  }
+
   actions.appendChild(delBtn);
 
   li.appendChild(check);
@@ -407,6 +417,145 @@ async function apiDeleteTask(id) {
     throw new Error('Network error: ' + e.message);
   }
 }
+
+async function apiParseNutrition(ingredients) {
+  const base = API_URL.replace(/\/tasks$/, '');
+  const res = await fetch(`${base}/api/nutrition/parse`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ ingredients })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || err.details || 'Error al calcular nutrición');
+  }
+  return res.json();
+}
+
+async function apiSaveNutrition(payload) {
+  const base = API_URL.replace(/\/tasks$/, '');
+  const res = await fetch(`${base}/api/nutrition/save`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error('Error al guardar');
+  return res.json();
+}
+
+// --- Modales calorías ---
+let currentNutritionTask = null;
+let currentMealType = null;
+
+const modalMealType = document.getElementById('modalMealType');
+const modalNutrition = document.getElementById('modalNutrition');
+const nutritionIngredients = document.getElementById('nutritionIngredients');
+const nutritionResult = document.getElementById('nutritionResult');
+const nutritionCalcBtn = document.getElementById('nutritionCalcBtn');
+
+function openModalMealType(task) {
+  currentNutritionTask = task;
+  currentMealType = null;
+  if (modalMealType) {
+    modalMealType.classList.remove('is-hidden');
+    modalMealType.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeModalMealType() {
+  if (modalMealType) {
+    modalMealType.classList.add('is-hidden');
+    modalMealType.setAttribute('aria-hidden', 'true');
+  }
+  currentNutritionTask = null;
+  currentMealType = null;
+}
+
+function openModalNutrition(task, mealType) {
+  currentNutritionTask = task;
+  currentMealType = mealType;
+  if (nutritionIngredients) nutritionIngredients.value = '';
+  if (nutritionResult) {
+    nutritionResult.classList.add('is-hidden');
+    nutritionResult.innerHTML = '';
+  }
+  if (modalNutrition) {
+    modalNutrition.classList.remove('is-hidden');
+    modalNutrition.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeModalNutrition() {
+  if (modalNutrition) {
+    modalNutrition.classList.add('is-hidden');
+    modalNutrition.setAttribute('aria-hidden', 'true');
+  }
+  currentNutritionTask = null;
+  currentMealType = null;
+}
+
+if (modalMealType) {
+  modalMealType.querySelectorAll('.modal-meal-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const meal = btn.getAttribute('data-meal');
+      if (meal && currentNutritionTask) {
+        closeModalMealType();
+        openModalNutrition(currentNutritionTask, meal);
+      }
+    });
+  });
+}
+
+if (nutritionCalcBtn && nutritionIngredients && nutritionResult) {
+  nutritionCalcBtn.addEventListener('click', async () => {
+    const text = (nutritionIngredients.value || '').trim();
+    if (!text) {
+      alert('Escribe al menos un alimento (uno por línea).');
+      return;
+    }
+    nutritionCalcBtn.disabled = true;
+    try {
+      const data = await apiParseNutrition(text);
+      nutritionResult.innerHTML = `
+        <strong>Calorías:</strong> ${data.calories ?? 0} kcal &nbsp;
+        <strong>Proteína:</strong> ${data.protein ?? 0} g &nbsp;
+        <strong>Carbos:</strong> ${data.carbs ?? 0} g &nbsp;
+        <strong>Grasas:</strong> ${data.fat ?? 0} g
+        ${currentNutritionTask && currentMealType ? `<br><button type="button" class="btn btn-ghost" id="nutritionSaveBtn" style="margin-top:8px;">Guardar en esta tarea</button>` : ''}
+      `;
+      nutritionResult.classList.remove('is-hidden');
+      const saveBtn = document.getElementById('nutritionSaveBtn');
+      if (saveBtn && currentNutritionTask && currentMealType) {
+        saveBtn.addEventListener('click', async () => {
+          try {
+            await apiSaveNutrition({
+              task_id: currentNutritionTask.id,
+              meal_type: currentMealType,
+              foods_text: text,
+              calories: data.calories,
+              protein: data.protein,
+              carbs: data.carbs,
+              fat: data.fat
+            });
+            alert('Guardado.');
+            closeModalNutrition();
+          } catch (e) {
+            console.error(e);
+            alert('Error al guardar.');
+          }
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e.message || 'Error al calcular.');
+    } finally {
+      nutritionCalcBtn.disabled = false;
+    }
+  });
+}
+
+window.closeModalMealType = closeModalMealType;
+window.closeModalNutrition = closeModalNutrition;
 
 // --- Utils ---
 function formatDate(iso) {
