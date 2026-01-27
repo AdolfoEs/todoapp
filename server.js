@@ -34,13 +34,45 @@ db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
       title TEXT NOT NULL,
       completed INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       start_time TEXT,
-      end_time TEXT
+      end_time TEXT,
+      FOREIGN KEY (user_id) REFERENCES usuarios(id)
     )
   `);
+  
+  // Migración: agregar columna user_id si la tabla ya existe sin ella
+  db.all("PRAGMA table_info(tasks)", (err, columns) => {
+    if (err) {
+      console.error('Error checking table structure:', err);
+      return;
+    }
+    
+    const hasUserId = columns.some(col => col.name === 'user_id');
+    
+    if (!hasUserId) {
+      console.log('Migrating: Adding user_id column to tasks table...');
+      // Primero agregar la columna (puede ser NULL temporalmente)
+      db.run(`ALTER TABLE tasks ADD COLUMN user_id INTEGER`, (err) => {
+        if (err) {
+          console.error('Migration error:', err.message);
+        } else {
+          console.log('Migration: user_id column added');
+          // Eliminar tareas sin usuario (no podemos asignarlas a nadie)
+          db.run(`DELETE FROM tasks WHERE user_id IS NULL`, (err) => {
+            if (err) {
+              console.error('Error cleaning orphaned tasks:', err);
+            } else {
+              console.log('Migration: Cleaned up tasks without user_id');
+            }
+          });
+        }
+      });
+    }
+  });
 });
 
 
@@ -77,6 +109,29 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Función para validar contraseña segura
+function validatePassword(password) {
+  const errors = [];
+  
+  if (password.length < 8) {
+    errors.push('Mínimo 8 caracteres');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Al menos una mayúscula');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Al menos una minúscula');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('Al menos un número');
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>_\-]/.test(password)) {
+    errors.push('Al menos un símbolo (!@#$%^&*...)');
+  }
+  
+  return errors;
+}
+
 // Registro de usuario
 app.post('/register', async (req, res) => {
   const { nombre, password, correo } = req.body;
@@ -85,8 +140,18 @@ app.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Nombre y contraseña son requeridos' });
   }
 
-  if (password.length < 4) {
-    return res.status(400).json({ error: 'La contraseña debe tener al menos 4 caracteres' });
+  // Validar nombre de usuario
+  if (nombre.length < 3) {
+    return res.status(400).json({ error: 'El nombre debe tener al menos 3 caracteres' });
+  }
+
+  // Validar contraseña segura
+  const passwordErrors = validatePassword(password);
+  if (passwordErrors.length > 0) {
+    return res.status(400).json({ 
+      error: 'Contraseña no segura', 
+      details: passwordErrors 
+    });
   }
 
   try {
@@ -160,32 +225,32 @@ app.get('/verify', authenticateToken, (req, res) => {
 });
 
 // ============ ENDPOINTS DE TAREAS ============
-app.get('/tasks', (req, res) => {
-  db.all('SELECT * FROM tasks ORDER BY id DESC', [], (err, rows) => {
-    if (err) 
-      {
-       return res.status(500).json({ error: 'DB error' });
-      }
-      else 
-      {
-        res.json(rows);
-      }
+// Todas las rutas de tareas requieren autenticación
+app.get('/tasks', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  db.all('SELECT * FROM tasks WHERE user_id = ? ORDER BY id DESC', [userId], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'DB error' });
+    }
+    res.json(rows);
   });
 });
 
-app.post('/tasks', (req, res) => {
+app.post('/tasks', authenticateToken, (req, res) => {
+  const userId = req.user.id;
   const title = (req.body.title || '').trim();
   const start_time = req.body.start_time || null;
   const end_time = req.body.end_time || null;
   if (!title) return res.status(400).json({ error: 'title required' });
   const createdAt = new Date().toISOString();
   db.run(
-    'INSERT INTO tasks (title, completed, created_at, start_time, end_time) VALUES (?, ?, ?, ?, ?)',
-    [title, 0, createdAt, start_time, end_time],
+    'INSERT INTO tasks (user_id, title, completed, created_at, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)',
+    [userId, title, 0, createdAt, start_time, end_time],
     function (err) {
       if (err) return res.status(500).json({ error: 'DB error' });
       res.status(201).json({
         id: this.lastID,
+        user_id: userId,
         title,
         completed: 0,
         created_at: createdAt,
@@ -196,30 +261,33 @@ app.post('/tasks', (req, res) => {
   );
 });
 
-app.patch('/tasks/:id', (req, res) => {
+app.patch('/tasks/:id', authenticateToken, (req, res) => {
   const id = Number(req.params.id);
+  const userId = req.user.id;
   const completed = req.body.completed ? 1 : 0;
-  db.run('UPDATE tasks SET completed = ? WHERE id = ?', [completed, id], function (err) {
+  db.run('UPDATE tasks SET completed = ? WHERE id = ? AND user_id = ?', [completed, id, userId], function (err) {
     if (err) return res.status(500).json({ error: 'DB error' });
     if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);
   });
 });
 
-app.put('/tasks/:id', (req, res) => {
+app.put('/tasks/:id', authenticateToken, (req, res) => {
   const id = Number(req.params.id);
+  const userId = req.user.id;
   const title = (req.body.title || '').trim();
   if (!title) return res.status(400).json({ error: 'title required' });
-  db.run('UPDATE tasks SET title = ? WHERE id = ?', [title, id], function (err) {
+  db.run('UPDATE tasks SET title = ? WHERE id = ? AND user_id = ?', [title, id, userId], function (err) {
     if (err) return res.status(500).json({ error: 'DB error' });
     if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);
   });
 });
 
-app.delete('/tasks/:id', (req, res) => {
+app.delete('/tasks/:id', authenticateToken, (req, res) => {
   const id = Number(req.params.id);
-  db.run('DELETE FROM tasks WHERE id = ?', [id], function (err) {
+  const userId = req.user.id;
+  db.run('DELETE FROM tasks WHERE id = ? AND user_id = ?', [id, userId], function (err) {
     if (err) return res.status(500).json({ error: 'DB error' });
     if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);

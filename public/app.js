@@ -315,8 +315,16 @@ async function clearCompleted() {
 // --- API ---
 async function apiGetTasks() {
   try {
-    const res = await fetch(API_URL);
-    if (!res.ok) throw new Error("Error al obtener tareas");
+    const res = await fetch(API_URL, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente");
+      }
+      throw new Error("Error al obtener tareas");
+    }
     return res.json();
   } catch (e) {
     throw new Error('Network error: ' + e.message);
@@ -327,10 +335,16 @@ async function apiCreateTask(title, start_time = null, end_time = null) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ title, start_time, end_time }),
     });
-    if (!res.ok) throw new Error("Error al crear tarea");
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente");
+      }
+      throw new Error("Error al crear tarea");
+    }
     return res.json();
   } catch (e) {
     throw new Error('Network error: ' + e.message);
@@ -341,10 +355,16 @@ async function apiSetCompleted(id, completed) {
   try {
     const res = await fetch(`${API_URL}/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ completed }),
     });
-    if (!res.ok) throw new Error("Error al actualizar estado");
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente");
+      }
+      throw new Error("Error al actualizar estado");
+    }
   } catch (e) {
     throw new Error('Network error: ' + e.message);
   }
@@ -355,10 +375,16 @@ async function apiUpdateTitle(id, title) {
   try {
     const res = await fetch(`${API_URL}/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ title }),
     });
-    if (!res.ok) throw new Error("Error al editar título");
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente");
+      }
+      throw new Error("Error al editar título");
+    }
   } catch (e) {
     throw new Error('Network error: ' + e.message);
   }
@@ -366,8 +392,17 @@ async function apiUpdateTitle(id, title) {
 
 async function apiDeleteTask(id) {
   try {
-    const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("Error al eliminar tarea");
+    const res = await fetch(`${API_URL}/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente");
+      }
+      throw new Error("Error al eliminar tarea");
+    }
   } catch (e) {
     throw new Error('Network error: ' + e.message);
   }
