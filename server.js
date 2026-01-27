@@ -383,15 +383,36 @@ app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
     }
     const data = await resp.json();
     let calories = 0, protein = 0, carbs = 0, fat = 0;
-    if (Array.isArray(data)) {
-      data.forEach((item) => {
-        const n = item.nutrition?.nutrients || [];
-        const byName = (name) => (n.find((x) => (x.name || '').toLowerCase() === name) || {}).amount || 0;
-        calories += byName('calories');
-        protein += byName('protein');
-        carbs += byName('carbohydrates');
-        fat += byName('fat');
-      });
+    const items = Array.isArray(data) ? data : (data && Array.isArray(data.ingredients) ? data.ingredients : []);
+    const norm = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
+    const amount = (x) => norm(x?.amount ?? x?.value ?? 0);
+    const nameOf = (x) => (x?.name || x?.title || '').toString().toLowerCase().trim();
+    const matchNutrient = (arr, ...aliases) => {
+      if (!Array.isArray(arr)) return 0;
+      const a = aliases.map((s) => s.toLowerCase());
+      const found = arr.find((x) => a.includes(nameOf(x)));
+      return amount(found);
+    };
+    items.forEach((item) => {
+      const raw = item.nutrition?.nutrients ?? item.nutrients ?? item.nutrition ?? [];
+      const list = Array.isArray(raw) ? raw : (typeof raw === 'object' && raw !== null ? Object.entries(raw).map(([k, v]) => ({ name: k, amount: v })) : []);
+      calories += matchNutrient(list, 'calories', 'energy');
+      protein += matchNutrient(list, 'protein');
+      carbs += matchNutrient(list, 'carbohydrates', 'carbohydrate', 'carbs');
+      fat += matchNutrient(list, 'fat', 'total fat');
+    });
+    // Fallback: si parseIngredients no devolvió nutrición, usar Recipe Nutrition by Ingredients
+    if (calories === 0 && protein === 0 && carbs === 0 && fat === 0 && lines.length > 0) {
+      const ingParam = encodeURIComponent(lines.join(', '));
+      const fallbackUrl = `https://api.spoonacular.com/recipes/recipeNutritionByIngredients?ingredients=${ingParam}&apiKey=${SPOONACULAR_API_KEY}`;
+      const fallbackResp = await fetch(fallbackUrl);
+      if (fallbackResp.ok) {
+        const fb = await fallbackResp.json();
+        calories = Math.round(Number(fb.calories) || 0);
+        protein = Math.round(Number(fb.protein) || 0);
+        carbs = Math.round(Number(fb.carbohydrates ?? fb.carbs) || 0);
+        fat = Math.round(Number(fb.fat) || 0);
+      }
     }
     res.json({ calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) });
   } catch (e) {

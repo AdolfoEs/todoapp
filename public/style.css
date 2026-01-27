@@ -434,7 +434,8 @@ input[type="time"].input {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -443,7 +444,7 @@ input[type="time"].input {
 }
 .modal-overlay.is-hidden { display: none; }
 .modal {
-  background: var(--panel);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
@@ -495,4 +496,30 @@ input[type="time"].input {
 }
 .nutrition-result.is-hidden { display: none; }
 .nutrition-result strong { color: var(--primary); }
-.actions .icon-btn.calories { margin-right: 4px; }
+
+/* Botón Calorías: llamativo y destacado */
+.btn-calorias {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #dc2626 100%);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+.btn-calorias:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5), 0 0 12px rgba(245, 158, 11, 0.25);
+}
+.btn-calorias:active {
+  transform: translateY(0);
+}
+.actions .btn-calorias { margin-right: 4px; }

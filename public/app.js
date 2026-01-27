@@ -206,10 +206,10 @@ function renderTaskItem(task) {
 
   if (task.is_food_task === 1 || task.is_food_task === true) {
     const calBtn = document.createElement("button");
-    calBtn.className = "icon-btn calories";
+    calBtn.className = "btn-calorias";
     calBtn.type = "button";
-    calBtn.textContent = "🔥";
-    calBtn.title = "Calorías";
+    calBtn.innerHTML = "🔥 Calorías";
+    calBtn.title = "Ver calorías y macros";
     calBtn.addEventListener("click", () => openModalMealType(task));
     actions.appendChild(calBtn);
   }
