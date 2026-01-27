@@ -355,6 +355,19 @@ app.delete('/tasks/:id', authenticateToken, (req, res) => {
 // ============ NUTRICIÓN (Spoonacular) ============
 const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
 
+// Traduce texto español → inglés para que Spoonacular reconozca mejor los ingredientes (MyMemory, gratuito).
+async function translateToEnglish(text) {
+  if (!text || typeof text !== 'string') return text;
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=es|en`;
+    const r = await fetch(url);
+    if (!r.ok) return text;
+    const j = await r.json();
+    const out = j.responseData?.translatedText;
+    return (out && typeof out === 'string') ? out.trim() : text;
+  } catch (_) { return text; }
+}
+
 app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
   if (!SPOONACULAR_API_KEY) {
     return res.status(503).json({ error: 'Servicio de nutrición no configurado. Configura SPOONACULAR_API_KEY.' });
@@ -365,6 +378,11 @@ app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
   if (lines.length === 0) {
     return res.status(400).json({ error: 'Escribe al menos un alimento (uno por línea)' });
   }
+  // Traducir a inglés para Spoonacular; si falla o ya está en inglés, se usan las líneas originales.
+  const translated = await translateToEnglish(lines.join('\n'));
+  const linesForApi = translated.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const apiLines = linesForApi.length > 0 ? linesForApi : lines;
+
   const norm = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
   const pick = (arr, ...aliases) => {
     if (!Array.isArray(arr)) return 0;
@@ -387,11 +405,11 @@ app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
   let lastRaw = null;
 
   try {
-    // 1) Analyze Recipe (recetas/analizar) — devuelve nutrition.nutrients
+    // 1) Analyze Recipe (recetas/analizar) — ingredientes en inglés para mejor reconocimiento
     const analyzeResp = await fetch(`https://api.spoonacular.com/recipes/analyze?apiKey=${SPOONACULAR_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Comida', servings: 1, ingredients: lines, instructions: '' })
+      body: JSON.stringify({ title: 'Comida', servings: 1, ingredients: apiLines, instructions: '' })
     });
     if (analyzeResp.ok) {
       const ad = await analyzeResp.json();
@@ -412,10 +430,10 @@ app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
       }
     }
 
-    // 2) Parse Ingredients (analizar ingredientes) si sigue en 0
+    // 2) Parse Ingredients (analizar ingredientes) si sigue en 0 — también en inglés
     if (calories === 0 && protein === 0 && carbs === 0 && fat === 0) {
       const body = new URLSearchParams({
-        ingredientList: lines.join('\n'),
+        ingredientList: apiLines.join('\n'),
         servings: '1',
         includeNutrition: 'true'
       }).toString();
