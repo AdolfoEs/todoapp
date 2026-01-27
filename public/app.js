@@ -520,11 +520,13 @@ if (nutritionCalcBtn && nutritionIngredients && nutritionResult) {
     nutritionCalcBtn.disabled = true;
     try {
       const data = await apiParseNutrition(text);
+      const debug = (data._debug && !(data.calories || data.protein || data.carbs || data.fat)) ? `<br><small style="color:var(--muted);word-break:break-all;font-size:11px;">Respuesta API (para depurar): ${data._debug}</small>` : '';
       nutritionResult.innerHTML = `
         <strong>Calorías:</strong> ${data.calories ?? 0} kcal &nbsp;
         <strong>Proteína:</strong> ${data.protein ?? 0} g &nbsp;
         <strong>Carbos:</strong> ${data.carbs ?? 0} g &nbsp;
         <strong>Grasas:</strong> ${data.fat ?? 0} g
+        ${debug}
         ${currentNutritionTask && currentMealType ? `<br><button type="button" class="btn btn-ghost" id="nutritionSaveBtn" style="margin-top:8px;">Guardar en esta tarea</button>` : ''}
       `;
       nutritionResult.classList.remove('is-hidden');
