@@ -396,7 +396,13 @@ app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
     const resp = await fetch(`https://api.spoonacular.com/recipes/analyze?apiKey=${SPOONACULAR_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Comida', servings: 1, ingredients: apiLines, instructions: '' })
+      body: JSON.stringify({
+        title: 'Comida',
+        servings: 1,
+        ingredients: apiLines,
+        instructions: '',
+        includeNutrition: true
+      })
     });
     if (!resp.ok) {
       return res.status(502).json({ error: 'Error al analizar receta', details: resp.statusText });
