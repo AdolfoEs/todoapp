@@ -10,7 +10,11 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_cambiar_en_produccion';
 
 app.use(cors({
-  origin: ['https://sunny-babka-8a1b11.netlify.app', 'http://localhost:3000'],
+  origin: [
+    'https://sunny-babka-8a1b11.netlify.app',
+    'http://localhost:3000',
+    'https://todoapp-production-9176.up.railway.app'
+  ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 }));
 app.use(express.json());
@@ -187,10 +191,12 @@ app.post('/login', (req, res) => {
 
   db.get('SELECT * FROM usuarios WHERE nombre = ?', [nombre], async (err, user) => {
     if (err) {
+      console.error('Error en consulta de login:', err);
       return res.status(500).json({ error: 'Error del servidor' });
     }
 
     if (!user) {
+      console.log('Usuario no encontrado:', nombre);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
@@ -198,6 +204,7 @@ app.post('/login', (req, res) => {
       const validPassword = await bcrypt.compare(password, user.password);
       
       if (!validPassword) {
+        console.log('Contraseña incorrecta para usuario:', nombre);
         return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
       }
 
@@ -222,6 +229,16 @@ app.post('/login', (req, res) => {
 // Verificar token (útil para el frontend)
 app.get('/verify', authenticateToken, (req, res) => {
   res.json({ valid: true, user: req.user });
+});
+
+// Endpoint temporal de debug (eliminar en producción)
+app.get('/debug/users', (req, res) => {
+  db.all('SELECT id, nombre, correo, created_at FROM usuarios', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'DB error', details: err.message });
+    }
+    res.json({ count: rows.length, users: rows });
+  });
 });
 
 // ============ ENDPOINTS DE TAREAS ============
