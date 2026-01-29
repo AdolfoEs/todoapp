@@ -42,6 +42,30 @@ function isFoodTask(title) {
   return FOOD_KEYWORDS.some(kw => t.includes(kw)) ? 1 : 0;
 }
 
+// Palabras que marcan una tarea como "de lectura" (botón libro)
+const READING_KEYWORDS = ['libro', 'leer'];
+function isReadingTask(title) {
+  if (!title || typeof title !== 'string') return 0;
+  const t = title.toLowerCase().trim();
+  return READING_KEYWORDS.some(kw => t.includes(kw)) ? 1 : 0;
+}
+
+// Palabras que marcan una tarea como "gym/entrenamiento" (botón 💪)
+const GYM_KEYWORDS = ['gym', 'deporte', 'correr', 'pesas', 'gimnasio', 'crossfit', 'cross', 'pechamen', 'espalda', 'piernas'];
+function isGymTask(title) {
+  if (!title || typeof title !== 'string') return 0;
+  const t = title.toLowerCase().trim();
+  return GYM_KEYWORDS.some(kw => t.includes(kw)) ? 1 : 0;
+}
+
+// Palabras que marcan una tarea como "lista de compras" (botón 🛒)
+const SHOPPING_KEYWORDS = ['compras', 'comprar', 'supermercado', 'super', 'feria', 'mall', 'chino'];
+function isShoppingTask(title) {
+  if (!title || typeof title !== 'string') return 0;
+  const t = title.toLowerCase().trim();
+  return SHOPPING_KEYWORDS.some(kw => t.includes(kw)) ? 1 : 0;
+}
+
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS tasks (
@@ -53,6 +77,10 @@ db.serialize(() => {
       start_time TEXT,
       end_time TEXT,
       is_food_task INTEGER DEFAULT 0,
+      is_reading_task INTEGER DEFAULT 0,
+      is_gym_task INTEGER DEFAULT 0,
+      is_shopping_task INTEGER DEFAULT 0,
+      date TEXT,
       FOREIGN KEY (user_id) REFERENCES usuarios(id)
     )
   `);
@@ -85,19 +113,70 @@ db.serialize(() => {
         else console.log('Migration: is_food_task column added');
       });
     }
-    // Backfill: actualizar is_food_task en tareas existentes según el título (por si se crearon antes de la migración)
-    db.all('SELECT id, title, is_food_task FROM tasks', [], (errBackfill, rows) => {
-      if (errBackfill || !rows || !rows.length) return;
-      const toUpdate = rows.filter((r) => {
-        const want = isFoodTask(r.title) ? 1 : 0;
-        const cur = r.is_food_task == null ? 0 : Number(r.is_food_task);
-        return cur !== want;
+    // Migración: agregar is_reading_task si falta
+    const hasReadingTask = columns.some(col => col.name === 'is_reading_task');
+    if (!hasReadingTask) {
+      console.log('Migrating: Adding is_reading_task column to tasks...');
+      db.run(`ALTER TABLE tasks ADD COLUMN is_reading_task INTEGER DEFAULT 0`, (err) => {
+        if (err) console.error('Migration is_reading_task:', err.message);
+        else console.log('Migration: is_reading_task column added');
       });
-      toUpdate.forEach((r) => {
-        db.run('UPDATE tasks SET is_food_task = ? WHERE id = ?', [isFoodTask(r.title) ? 1 : 0, r.id]);
+    }
+    // Migración: agregar is_gym_task si falta
+    const hasGymTask = columns.some(col => col.name === 'is_gym_task');
+    if (!hasGymTask) {
+      console.log('Migrating: Adding is_gym_task column to tasks...');
+      db.run(`ALTER TABLE tasks ADD COLUMN is_gym_task INTEGER DEFAULT 0`, (err) => {
+        if (err) console.error('Migration is_gym_task:', err.message);
+        else console.log('Migration: is_gym_task column added');
       });
-      if (toUpdate.length > 0) console.log('Backfill is_food_task: actualizadas', toUpdate.length, 'tareas existentes');
-    });
+    }
+    // Migración: agregar date (fecha del día de la tarea, YYYY-MM-DD) si falta
+    const hasDate = columns.some(col => col.name === 'date');
+    if (!hasDate) {
+      console.log('Migrating: Adding date column to tasks...');
+      db.run(`ALTER TABLE tasks ADD COLUMN date TEXT`, (err) => {
+        if (err) console.error('Migration date:', err.message);
+        else {
+          console.log('Migration: date column added');
+          db.run(`UPDATE tasks SET date = date(created_at) WHERE date IS NULL`, () => {});
+        }
+      });
+    }
+    // Migración: agregar is_shopping_task si falta
+    const hasShoppingTask = columns.some(col => col.name === 'is_shopping_task');
+    const runBackfill = () => {
+      db.all('SELECT id, title, is_food_task, is_reading_task, is_gym_task, is_shopping_task FROM tasks', [], (errBackfill, rows) => {
+        if (errBackfill || !rows || !rows.length) return;
+        const toUpdate = rows.filter((r) => {
+          const wantFood = isFoodTask(r.title) ? 1 : 0;
+          const wantReading = isReadingTask(r.title) ? 1 : 0;
+          const wantGym = isGymTask(r.title) ? 1 : 0;
+          const wantShopping = isShoppingTask(r.title) ? 1 : 0;
+          const curFood = r.is_food_task == null ? 0 : Number(r.is_food_task);
+          const curReading = r.is_reading_task == null ? 0 : Number(r.is_reading_task);
+          const curGym = r.is_gym_task == null ? 0 : Number(r.is_gym_task);
+          const curShopping = r.is_shopping_task == null ? 0 : Number(r.is_shopping_task);
+          return curFood !== wantFood || curReading !== wantReading || curGym !== wantGym || curShopping !== wantShopping;
+        });
+        toUpdate.forEach((r) => {
+          db.run('UPDATE tasks SET is_food_task = ?, is_reading_task = ?, is_gym_task = ?, is_shopping_task = ? WHERE id = ?', [isFoodTask(r.title) ? 1 : 0, isReadingTask(r.title) ? 1 : 0, isGymTask(r.title) ? 1 : 0, isShoppingTask(r.title) ? 1 : 0, r.id]);
+        });
+        if (toUpdate.length > 0) console.log('Backfill is_food_task/is_reading_task/is_gym_task/is_shopping_task: actualizadas', toUpdate.length, 'tareas existentes');
+      });
+    };
+    if (!hasShoppingTask) {
+      console.log('Migrating: Adding is_shopping_task column to tasks...');
+      db.run(`ALTER TABLE tasks ADD COLUMN is_shopping_task INTEGER DEFAULT 0`, (err) => {
+        if (err) console.error('Migration is_shopping_task:', err.message);
+        else {
+          console.log('Migration: is_shopping_task column added');
+          runBackfill();
+        }
+      });
+    } else {
+      runBackfill();
+    }
   });
 });
 
@@ -129,6 +208,106 @@ db.serialize(() => {
       FOREIGN KEY (user_id) REFERENCES usuarios(id)
     )
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS gym_progress (
+      task_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      routine_text TEXT,
+      duration_min INTEGER,
+      series INTEGER,
+      seconds_per_set INTEGER,
+      rest_seconds INTEGER,
+      completed_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (task_id, user_id),
+      FOREIGN KEY (task_id) REFERENCES tasks(id),
+      FOREIGN KEY (user_id) REFERENCES usuarios(id)
+    )
+  `);
+  db.all('PRAGMA table_info(gym_progress)', [], (err, cols) => {
+    const names = (cols || []).map(c => c.name);
+    if (!names.includes('series')) db.run('ALTER TABLE gym_progress ADD COLUMN series INTEGER', () => {});
+    if (!names.includes('seconds_per_set')) db.run('ALTER TABLE gym_progress ADD COLUMN seconds_per_set INTEGER', () => {});
+    if (!names.includes('rest_seconds')) db.run('ALTER TABLE gym_progress ADD COLUMN rest_seconds INTEGER', () => {});
+    if (!names.includes('completed_at')) db.run('ALTER TABLE gym_progress ADD COLUMN completed_at TEXT', () => {});
+  });
+  db.run(`
+    CREATE TABLE IF NOT EXISTS reading_progress (
+      task_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      book_title TEXT,
+      current_page INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (task_id, user_id),
+      FOREIGN KEY (task_id) REFERENCES tasks(id),
+      FOREIGN KEY (user_id) REFERENCES usuarios(id)
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopping_list_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      item_text TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id),
+      FOREIGN KEY (user_id) REFERENCES usuarios(id)
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS foods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      calories_per_100 REAL NOT NULL DEFAULT 0,
+      protein_per_100 REAL NOT NULL DEFAULT 0,
+      carbs_per_100 REAL NOT NULL DEFAULT 0,
+      fat_per_100 REAL NOT NULL DEFAULT 0
+    )
+  `);
+  // Seed básico de alimentos (por 100 g) si la tabla está vacía; luego arranca el servidor
+  db.get('SELECT COUNT(*) as n FROM foods', [], (err, row) => {
+    const n = (row && row.n) || 0;
+    if (err) {
+      startHttpServer();
+      return;
+    }
+    if (n > 0) {
+      console.log('Foods: tabla ya tiene', n, 'alimentos');
+      startHttpServer();
+      return;
+    }
+    const seed = [
+      ['arroz', 130, 2.7, 28, 0.3],
+      ['pollo', 165, 31, 0, 3.6],
+      ['huevo', 155, 13, 1.1, 11],
+      ['leche', 42, 3.4, 5, 1],
+      ['pan', 265, 9, 49, 3.2],
+      ['manzana', 52, 0.3, 14, 0.2],
+      ['plátano', 89, 1.1, 23, 0.3],
+      ['pasta', 131, 5, 25, 1.1],
+      ['carne vaca', 250, 26, 0, 15],
+      ['atún', 132, 28, 0, 1],
+      ['queso', 402, 25, 1.3, 33],
+      ['aceite oliva', 884, 0, 0, 100],
+      ['tomate', 18, 0.9, 3.9, 0.2],
+      ['lechuga', 15, 1.4, 2.9, 0.2],
+      ['arroz integral', 112, 2.6, 24, 0.9],
+      ['pavo', 135, 29, 0, 1.5],
+      ['salmon', 208, 20, 0, 13],
+      ['avena', 389, 17, 66, 6.9],
+      ['yogur', 59, 10, 3.6, 0.4],
+      ['arroz blanco', 130, 2.7, 28, 0.3]
+    ];
+    const stmt = db.prepare('INSERT INTO foods (name, calories_per_100, protein_per_100, carbs_per_100, fat_per_100) VALUES (?, ?, ?, ?, ?)');
+    seed.forEach(([name, cal, p, c, f]) => stmt.run(name, cal, p, c, f));
+    stmt.finalize(() => {
+      console.log('Seed foods: insertados', seed.length, 'alimentos');
+      startHttpServer();
+    });
+  });
 });
 
 // ============ AUTENTICACIÓN ============
@@ -283,12 +462,88 @@ app.get('/debug/users', (req, res) => {
 // Todas las rutas de tareas requieren autenticación
 app.get('/tasks', authenticateToken, (req, res) => {
   const userId = req.user.id;
-  db.all('SELECT * FROM tasks WHERE user_id = ? ORDER BY id DESC', [userId], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: 'DB error' });
+  const dateParam = (req.query.date || '').trim();
+
+  if (dateParam) {
+    // Vista por día: tareas de esa fecha con meal_logs, reading_progress, gym_progress
+    const sql = `
+      SELECT t.*, r.book_title, r.current_page,
+        g.routine_text AS gym_routine, g.duration_min AS gym_duration_min,
+        g.series AS gym_series, g.seconds_per_set AS gym_seconds_per_set, g.rest_seconds AS gym_rest_seconds, g.completed_at AS gym_completed_at
+      FROM tasks t
+      LEFT JOIN reading_progress r ON t.id = r.task_id AND t.user_id = r.user_id
+      LEFT JOIN gym_progress g ON t.id = g.task_id AND t.user_id = g.user_id
+      WHERE t.user_id = ? AND (t.date = ? OR (t.date IS NULL AND date(t.created_at) = ?))
+      ORDER BY t.start_time ASC, t.created_at ASC`;
+    db.all(sql, [userId, dateParam, dateParam], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+      const taskIds = (rows || []).map(r => r.id).filter(Boolean);
+      if (taskIds.length === 0) return res.json([]);
+      const placeholders = taskIds.map(() => '?').join(',');
+      db.all(
+        `SELECT task_id, meal_type, foods_text, calories, protein, carbs, fat, created_at
+         FROM meal_logs WHERE task_id IN (${placeholders}) AND user_id = ? ORDER BY created_at ASC`,
+        [...taskIds, userId],
+        (err2, mealRows) => {
+          if (err2) return res.status(500).json({ error: 'DB error' });
+          const byTask = {};
+          (mealRows || []).forEach(m => {
+            if (!byTask[m.task_id]) byTask[m.task_id] = [];
+            byTask[m.task_id].push(m);
+          });
+          rows.forEach(t => { t.meal_logs = byTask[t.id] || []; });
+          res.json(rows);
+        }
+      );
+    });
+    return;
+  }
+
+  db.all(
+    `SELECT t.*, r.book_title, r.current_page,
+       g.routine_text AS gym_routine, g.duration_min AS gym_duration_min,
+       g.series AS gym_series, g.seconds_per_set AS gym_seconds_per_set, g.rest_seconds AS gym_rest_seconds, g.completed_at AS gym_completed_at
+     FROM tasks t
+     LEFT JOIN reading_progress r ON t.id = r.task_id AND t.user_id = r.user_id
+     LEFT JOIN gym_progress g ON t.id = g.task_id AND t.user_id = g.user_id
+     WHERE t.user_id = ?
+     ORDER BY t.id DESC`,
+    [userId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+      db.all(
+        'SELECT task_id, meal_type, calories, protein, carbs, fat, created_at FROM meal_logs WHERE user_id = ? ORDER BY task_id, created_at DESC',
+        [userId],
+        (err2, logs) => {
+          if (err2) return res.status(500).json({ error: 'DB error' });
+          const lastByTask = {};
+          for (const log of logs || []) {
+            if (lastByTask[log.task_id] == null) lastByTask[log.task_id] = log;
+          }
+          rows.forEach(t => {
+            const m = lastByTask[t.id];
+            if (m) {
+              t.last_meal_type = m.meal_type;
+              t.last_calories = m.calories;
+              t.last_protein = m.protein;
+              t.last_carbs = m.carbs;
+              t.last_fat = m.fat;
+            }
+          });
+          db.all(
+            'SELECT task_id, COUNT(*) AS cnt FROM shopping_list_items WHERE user_id = ? GROUP BY task_id',
+            [userId],
+            (err3, shopRows) => {
+              const shopByTask = {};
+              if (!err3 && shopRows) shopRows.forEach(r => { shopByTask[r.task_id] = r.cnt; });
+              rows.forEach(t => { t.shopping_count = shopByTask[t.id] || 0; });
+              res.json(rows);
+            }
+          );
+        }
+      );
     }
-    res.json(rows);
-  });
+  );
 });
 
 app.post('/tasks', authenticateToken, (req, res) => {
@@ -298,10 +553,14 @@ app.post('/tasks', authenticateToken, (req, res) => {
   const end_time = req.body.end_time || null;
   if (!title) return res.status(400).json({ error: 'title required' });
   const createdAt = new Date().toISOString();
+  const date = (req.body.date && /^\d{4}-\d{2}-\d{2}$/.test(req.body.date)) ? req.body.date : createdAt.slice(0, 10);
   const is_food_task = isFoodTask(title) ? 1 : 0;
+  const is_reading_task = isReadingTask(title) ? 1 : 0;
+  const is_gym_task = isGymTask(title) ? 1 : 0;
+  const is_shopping_task = isShoppingTask(title) ? 1 : 0;
   db.run(
-    'INSERT INTO tasks (user_id, title, completed, created_at, start_time, end_time, is_food_task) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, title, 0, createdAt, start_time, end_time, is_food_task],
+    'INSERT INTO tasks (user_id, title, completed, created_at, start_time, end_time, is_food_task, is_reading_task, is_gym_task, is_shopping_task, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [userId, title, 0, createdAt, start_time, end_time, is_food_task, is_reading_task, is_gym_task, is_shopping_task, date],
     function (err) {
       if (err) return res.status(500).json({ error: 'DB error' });
       res.status(201).json({
@@ -313,6 +572,10 @@ app.post('/tasks', authenticateToken, (req, res) => {
         start_time,
         end_time,
         is_food_task,
+        is_reading_task,
+        is_gym_task,
+        is_shopping_task,
+        date,
       });
     }
   );
@@ -335,7 +598,17 @@ app.put('/tasks/:id', authenticateToken, (req, res) => {
   const title = (req.body.title || '').trim();
   if (!title) return res.status(400).json({ error: 'title required' });
   const is_food_task = isFoodTask(title) ? 1 : 0;
-  db.run('UPDATE tasks SET title = ?, is_food_task = ? WHERE id = ? AND user_id = ?', [title, is_food_task, id, userId], function (err) {
+  const is_reading_task = isReadingTask(title) ? 1 : 0;
+  const is_gym_task = isGymTask(title) ? 1 : 0;
+  const is_shopping_task = isShoppingTask(title) ? 1 : 0;
+  const dateParam = req.body.date;
+  const date = (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) ? dateParam : null;
+  const updates = date !== null
+    ? ['title', 'is_food_task', 'is_reading_task', 'is_gym_task', 'is_shopping_task', 'date']
+    : ['title', 'is_food_task', 'is_reading_task', 'is_gym_task', 'is_shopping_task'];
+  const setClause = updates.map(c => `${c} = ?`).join(', ');
+  const values = date !== null ? [title, is_food_task, is_reading_task, is_gym_task, is_shopping_task, date, id, userId] : [title, is_food_task, is_reading_task, is_gym_task, is_shopping_task, id, userId];
+  db.run(`UPDATE tasks SET ${setClause} WHERE id = ? AND user_id = ?`, values, function (err) {
     if (err) return res.status(500).json({ error: 'DB error' });
     if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);
@@ -352,118 +625,171 @@ app.delete('/tasks/:id', authenticateToken, (req, res) => {
   });
 });
 
-// ============ NUTRICIÓN (Spoonacular) ============
-const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
+// ============ NUTRICIÓN (base de datos local) ============
 
-// Traduce texto español → inglés para que Spoonacular reconozca mejor los ingredientes (MyMemory, gratuito).
-async function translateToEnglish(text) {
-  if (!text || typeof text !== 'string') return text;
-  try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=es|en`;
-    const r = await fetch(url);
-    if (!r.ok) return text;
-    const j = await r.json();
-    const out = j.responseData?.translatedText;
-    return (out && typeof out === 'string') ? out.trim() : text;
-  } catch (_) { return text; }
+// Parsea una línea tipo "100g pollo", "100 g pollo" o "2 huevos" -> { grams, name }
+function parseLine(line) {
+  if (!line || typeof line !== 'string') return { grams: 0, name: '' };
+  const s = line.trim();
+  // "100gpollo" o "100g pollo" (con o sin espacio entre cantidad y nombre)
+  const gNoSpace = s.match(/^(\d+(?:[.,]\d+)?)\s*(?:g|gr|gramos?)\s*(.+)$/i);
+  if (gNoSpace) return { grams: parseFloat(String(gNoSpace[1]).replace(',', '.')) || 0, name: gNoSpace[2].trim() };
+  // "100 pollo" (gramos) o "2 huevos" (porciones: 65 g por huevo, 100 g resto)
+  const numMatch = s.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
+  if (numMatch) {
+    const num = parseFloat(String(numMatch[1]).replace(',', '.')) || 1;
+    const name = numMatch[2].trim();
+    const nameLower = name.toLowerCase();
+    const gramsPerUnit = (nameLower === 'huevo' || nameLower === 'huevos' || nameLower === 'egg' || nameLower === 'eggs') ? 65 : 100;
+    const grams = num > 50 ? num : num * gramsPerUnit;
+    return { grams, name };
+  }
+  return { grams: 100, name: s };
+}
+
+// Alias inglés → español
+const FOOD_ALIAS_ES = {
+  chicken: 'pollo', eggs: 'huevo', egg: 'huevo', milk: 'leche', bread: 'pan',
+  apple: 'manzana', banana: 'plátano', rice: 'arroz', pasta: 'pasta',
+  beef: 'carne vaca', carne: 'carne vaca', tuna: 'atún', atun: 'atún', cheese: 'queso', tomato: 'tomate',
+  lettuce: 'lechuga', salmon: 'salmon', turkey: 'pavo', oatmeal: 'avena',
+  yogurt: 'yogur', 'olive oil': 'aceite oliva', oil: 'aceite oliva',
+  avocado: 'palta'
+};
+
+// Fallback en memoria: siempre disponible para "1 huevo", "100g pollo", etc. (por 100 g)
+const IN_MEMORY_FOODS = [
+  { name: 'arroz', calories_per_100: 130, protein_per_100: 2.7, carbs_per_100: 28, fat_per_100: 0.3 },
+  { name: 'pollo', calories_per_100: 165, protein_per_100: 31, carbs_per_100: 0, fat_per_100: 3.6 },
+  { name: 'huevo', calories_per_100: 155, protein_per_100: 13, carbs_per_100: 1.1, fat_per_100: 11 },
+  { name: 'leche', calories_per_100: 42, protein_per_100: 3.4, carbs_per_100: 5, fat_per_100: 1 },
+  { name: 'pan', calories_per_100: 265, protein_per_100: 9, carbs_per_100: 49, fat_per_100: 3.2 },
+  { name: 'manzana', calories_per_100: 52, protein_per_100: 0.3, carbs_per_100: 14, fat_per_100: 0.2 },
+  { name: 'plátano', calories_per_100: 89, protein_per_100: 1.1, carbs_per_100: 23, fat_per_100: 0.3 },
+  { name: 'pasta', calories_per_100: 131, protein_per_100: 5, carbs_per_100: 25, fat_per_100: 1.1 },
+  { name: 'carne vaca', calories_per_100: 250, protein_per_100: 26, carbs_per_100: 0, fat_per_100: 15 },
+  { name: 'atún', calories_per_100: 132, protein_per_100: 28, carbs_per_100: 0, fat_per_100: 1 },
+  { name: 'queso', calories_per_100: 402, protein_per_100: 25, carbs_per_100: 1.3, fat_per_100: 33 },
+  { name: 'aceite oliva', calories_per_100: 884, protein_per_100: 0, carbs_per_100: 0, fat_per_100: 100 },
+  { name: 'tomate', calories_per_100: 18, protein_per_100: 0.9, carbs_per_100: 3.9, fat_per_100: 0.2 },
+  { name: 'lechuga', calories_per_100: 15, protein_per_100: 1.4, carbs_per_100: 2.9, fat_per_100: 0.2 },
+  { name: 'pavo', calories_per_100: 135, protein_per_100: 29, carbs_per_100: 0, fat_per_100: 1.5 },
+  { name: 'salmon', calories_per_100: 208, protein_per_100: 20, carbs_per_100: 0, fat_per_100: 13 },
+  { name: 'avena', calories_per_100: 389, protein_per_100: 17, carbs_per_100: 66, fat_per_100: 6.9 },
+  { name: 'yogur', calories_per_100: 59, protein_per_100: 10, carbs_per_100: 3.6, fat_per_100: 0.4 },
+  { name: 'palta', calories_per_100: 160, protein_per_100: 2, carbs_per_100: 8.5, fat_per_100: 14.7 }
+];
+
+function findInMemory(term) {
+  const t = (term || '').toLowerCase().trim();
+  let f = IN_MEMORY_FOODS.find(x => x.name.toLowerCase().includes(t) || t.includes(x.name.toLowerCase()));
+  if (f) return f;
+  const es = FOOD_ALIAS_ES[t];
+  if (es) f = IN_MEMORY_FOODS.find(x => x.name.toLowerCase() === es);
+  return f || null;
+}
+
+// True si la fila de la DB no tiene datos útiles (evita usar filas viejas con 0)
+function rowHasNoNutrition(row) {
+  if (!row) return true;
+  const cal = row.calories_per_100 ?? row.calories ?? 0;
+  const p = row.protein_per_100 ?? row.protein ?? 0;
+  const ch = row.carbs_per_100 ?? row.carbs ?? 0;
+  const f = row.fat_per_100 ?? row.fat ?? 0;
+  return cal === 0 && p === 0 && ch === 0 && f === 0;
+}
+
+function getFoodByName(name) {
+  return new Promise((resolve, reject) => {
+    if (!name || !name.trim()) return resolve(null);
+    const q = name.trim().toLowerCase();
+    const trySearch = (term, cb) => {
+      const pattern = '%' + term + '%';
+      db.get(
+        "SELECT * FROM foods WHERE LOWER(name) LIKE ? OR ? LIKE '%' || LOWER(name) || '%' LIMIT 1",
+        [pattern, term],
+        (err, row) => {
+          if (err) return cb(err);
+          cb(null, row || null);
+        }
+      );
+    };
+    trySearch(q, (err, row) => {
+      if (err) return reject(err);
+      if (row && !rowHasNoNutrition(row)) return resolve(row);
+      if (row) {
+        const mem = findInMemory(q);
+        if (mem) return resolve(mem);
+        return resolve(row);
+      }
+      const es = FOOD_ALIAS_ES[q];
+      if (es) return trySearch(es, (e, r) => {
+        if (e) return reject(e);
+        if (r && !rowHasNoNutrition(r)) return resolve(r);
+        if (r) {
+          const mem = findInMemory(es);
+          if (mem) return resolve(mem);
+          return resolve(r);
+        }
+        resolve(findInMemory(es) || null);
+      });
+      resolve(findInMemory(q) || null);
+    });
+  });
+}
+
+async function calculateFromFoods(lines) {
+  let calories = 0, protein = 0, carbs = 0, fat = 0;
+  for (const line of lines) {
+    const { grams, name } = parseLine(line);
+    if (!name) continue;
+    const food = await getFoodByName(name);
+    if (!food) continue;
+    const k = (grams || 0) / 100;
+    // Soporta columnas calories_per_100 o calories (por 100 g)
+    const c = food.calories_per_100 ?? food.calories ?? 0;
+    const p = food.protein_per_100 ?? food.protein ?? 0;
+    const ch = food.carbs_per_100 ?? food.carbs ?? 0;
+    const f = food.fat_per_100 ?? food.fat ?? 0;
+    calories += c * k;
+    protein += p * k;
+    carbs += ch * k;
+    fat += f * k;
+  }
+  return { calories, protein, carbs, fat };
 }
 
 app.post('/api/nutrition/parse', authenticateToken, async (req, res) => {
-  if (!SPOONACULAR_API_KEY) {
-    return res.status(503).json({ error: 'Servicio de nutrición no configurado. Configura SPOONACULAR_API_KEY.' });
-  }
   const { ingredients } = req.body || {};
   const text = typeof ingredients === 'string' ? ingredients : '';
   const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   if (lines.length === 0) {
     return res.status(400).json({ error: 'Escribe al menos un alimento (uno por línea)' });
   }
-  // Traducir a inglés para Spoonacular; si falla o ya está en inglés, se usan las líneas originales.
-  const translated = await translateToEnglish(lines.join('\n'));
-  const linesForApi = translated.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  const apiLines = linesForApi.length > 0 ? linesForApi : lines;
-
-  const norm = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
-  const pick = (arr, ...aliases) => {
-    if (!Array.isArray(arr)) return 0;
-    const a = aliases.map((s) => String(s).toLowerCase());
-    const nameOf = (x) => (x?.name || x?.title || x?.titleMetric || '').toString().toLowerCase().trim();
-    const amt = (x) => norm(x?.amount ?? x?.value ?? 0);
-    const found = arr.find((x) => a.some((k) => nameOf(x).includes(k) || k === nameOf(x)));
-    return amt(found);
-  };
-  const sumFromNutrients = (arr) => {
-    if (!Array.isArray(arr)) return { c: 0, p: 0, cb: 0, f: 0 };
-    return {
-      c: pick(arr, 'calories', 'energy'),
-      p: pick(arr, 'protein'),
-      cb: pick(arr, 'carbohydrates', 'carbohydrate', 'carbs'),
-      f: pick(arr, 'fat', 'total fat')
-    };
-  };
-  let calories = 0, protein = 0, carbs = 0, fat = 0;
-  let lastRaw = null;
-
   try {
-    // 1) Analyze Recipe (recetas/analizar) — ingredientes en inglés para mejor reconocimiento
-    const analyzeResp = await fetch(`https://api.spoonacular.com/recipes/analyze?apiKey=${SPOONACULAR_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Comida', servings: 1, ingredients: apiLines, instructions: '' })
+    const { calories, protein, carbs, fat } = await calculateFromFoods(lines);
+    res.json({
+      calories: Math.round(calories),
+      protein: Math.round(protein),
+      carbs: Math.round(carbs),
+      fat: Math.round(fat)
     });
-    if (analyzeResp.ok) {
-      const ad = await analyzeResp.json();
-      lastRaw = ad;
-      const nut = ad.nutrition ?? ad.nutritionSummary ?? ad;
-      const arr = nut?.nutrients ?? nut?.nutritionSummary?.nutrients ?? [];
-      const s = sumFromNutrients(Array.isArray(arr) ? arr : []);
-      if (s.c || s.p || s.cb || s.f) {
-        calories = s.c;
-        protein = s.p;
-        carbs = s.cb;
-        fat = s.f;
-      } else if (nut && typeof nut === 'object') {
-        calories = norm(nut.calories ?? nut.energy);
-        protein = norm(nut.protein);
-        carbs = norm(nut.carbohydrates ?? nut.carbs);
-        fat = norm(nut.fat);
-      }
-    }
-
-    // 2) Parse Ingredients (analizar ingredientes) si sigue en 0 — también en inglés
-    if (calories === 0 && protein === 0 && carbs === 0 && fat === 0) {
-      const body = new URLSearchParams({
-        ingredientList: apiLines.join('\n'),
-        servings: '1',
-        includeNutrition: 'true'
-      }).toString();
-      const parseResp = await fetch(`https://api.spoonacular.com/recipes/parseIngredients?apiKey=${SPOONACULAR_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body
-      });
-      if (parseResp.ok) {
-        const parseData = await parseResp.json();
-        lastRaw = parseData;
-        const items = Array.isArray(parseData) ? parseData : (parseData?.ingredients ?? []);
-        for (const item of items) {
-          const n = item.nutrition?.nutrients ?? item.nutrients ?? item.nutrition ?? [];
-          const s = sumFromNutrients(Array.isArray(n) ? n : []);
-          calories += s.c;
-          protein += s.p;
-          carbs += s.cb;
-          fat += s.f;
-        }
-      }
-    }
-
-    const out = { calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) };
-    if (out.calories + out.protein + out.carbs + out.fat === 0 && lastRaw != null)
-      out._debug = JSON.stringify(Array.isArray(lastRaw) ? lastRaw[0] : lastRaw).slice(0, 650);
-    res.json(out);
   } catch (e) {
-    console.error('Spoonacular error:', e);
+    console.error('Error nutrición local:', e);
     res.status(500).json({ error: 'Error al calcular nutrición', details: e.message });
+  }
+});
+
+// Solo desarrollo: prueba parseo sin login (quitar en producción)
+app.get('/api/nutrition/parse-test', async (req, res) => {
+  const text = (req.query.ingredients || '').trim();
+  const lines = text.split(/\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return res.status(400).json({ error: 'Query ?ingredients= necesaria (ej: 1 huevo)' });
+  try {
+    const { calories, protein, carbs, fat } = await calculateFromFoods(lines);
+    res.json({ calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message) });
   }
 });
 
@@ -485,7 +811,139 @@ app.post('/api/nutrition/save', authenticateToken, (req, res) => {
   );
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+// ============ LECTURA (libro / página) ============
+app.get('/api/reading/progress/:taskId', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const taskId = Number(req.params.taskId);
+  if (!taskId) return res.status(400).json({ error: 'task_id inválido' });
+  db.get(
+    'SELECT book_title, current_page FROM reading_progress WHERE task_id = ? AND user_id = ?',
+    [taskId, userId],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      if (!row) return res.json({ book_title: '', current_page: null });
+      res.json({ book_title: row.book_title || '', current_page: row.current_page });
+    }
+  );
 });
+
+app.post('/api/reading/save', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const { task_id, book_title, current_page } = req.body || {};
+  const taskId = Number(task_id);
+  if (!taskId) return res.status(400).json({ error: 'task_id requerido' });
+  const now = new Date().toISOString();
+  db.run(
+    `INSERT INTO reading_progress (task_id, user_id, book_title, current_page, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(task_id, user_id) DO UPDATE SET book_title = excluded.book_title, current_page = excluded.current_page, updated_at = excluded.updated_at`,
+    [taskId, userId, (book_title || '').trim() || null, current_page != null && current_page !== '' ? Number(current_page) : null, now, now],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      res.status(201).json({ created_at: now, updated_at: now });
+    }
+  );
+});
+
+// ============ GYM / ENTRENAMIENTO ============
+app.get('/api/gym/progress/:taskId', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const taskId = Number(req.params.taskId);
+  if (!taskId) return res.status(400).json({ error: 'task_id inválido' });
+  db.get(
+    'SELECT routine_text, duration_min, series, seconds_per_set, rest_seconds, completed_at FROM gym_progress WHERE task_id = ? AND user_id = ?',
+    [taskId, userId],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      if (!row) return res.json({ routine_text: '', duration_min: null, series: null, seconds_per_set: null, rest_seconds: null, completed_at: null });
+      res.json({
+        routine_text: row.routine_text || '',
+        duration_min: row.duration_min,
+        series: row.series,
+        seconds_per_set: row.seconds_per_set,
+        rest_seconds: row.rest_seconds,
+        completed_at: row.completed_at || null
+      });
+    }
+  );
+});
+
+app.post('/api/gym/save', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const { task_id, routine_text, duration_min, series, seconds_per_set, rest_seconds, completed_at } = req.body || {};
+  const taskId = Number(task_id);
+  if (!taskId) return res.status(400).json({ error: 'task_id requerido' });
+  const now = new Date().toISOString();
+  const seriesVal = series != null && series !== '' ? Number(series) : null;
+  const secondsPerSetVal = seconds_per_set != null && seconds_per_set !== '' ? Number(seconds_per_set) : null;
+  const restSecondsVal = rest_seconds != null && rest_seconds !== '' ? Number(rest_seconds) : null;
+  const completedAtVal = (completed_at && typeof completed_at === 'string') ? completed_at : null;
+  db.run(
+    `INSERT INTO gym_progress (task_id, user_id, routine_text, duration_min, series, seconds_per_set, rest_seconds, completed_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(task_id, user_id) DO UPDATE SET
+       routine_text = excluded.routine_text, duration_min = excluded.duration_min,
+       series = excluded.series, seconds_per_set = excluded.seconds_per_set, rest_seconds = excluded.rest_seconds,
+       completed_at = COALESCE(excluded.completed_at, completed_at),
+       updated_at = excluded.updated_at`,
+    [taskId, userId, (routine_text || '').trim() || null, duration_min != null && duration_min !== '' ? Number(duration_min) : null, seriesVal, secondsPerSetVal, restSecondsVal, completedAtVal, now, now],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      res.status(201).json({ created_at: now, updated_at: now });
+    }
+  );
+});
+
+// ============ LISTA DE COMPRAS ============
+app.get('/api/shopping/:taskId', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const taskId = Number(req.params.taskId);
+  if (!taskId) return res.status(400).json({ error: 'task_id inválido' });
+  db.all(
+    'SELECT id, item_text, sort_order, created_at FROM shopping_list_items WHERE task_id = ? AND user_id = ? ORDER BY sort_order ASC, created_at ASC',
+    [taskId, userId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      res.json({ items: (rows || []).map(r => ({ id: r.id, item_text: r.item_text, sort_order: r.sort_order, created_at: r.created_at })) });
+    }
+  );
+});
+
+app.post('/api/shopping/add', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const { task_id, item_text } = req.body || {};
+  const taskId = Number(task_id);
+  const text = (item_text != null && typeof item_text === 'string') ? item_text.trim() : '';
+  if (!taskId || !text) return res.status(400).json({ error: 'task_id y item_text son requeridos' });
+  const createdAt = new Date().toISOString();
+  db.get('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM shopping_list_items WHERE task_id = ? AND user_id = ?', [taskId, userId], (err, row) => {
+    if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+    const sortOrder = (row && row.next_order != null) ? row.next_order : 0;
+    db.run(
+      'INSERT INTO shopping_list_items (task_id, user_id, item_text, sort_order, created_at) VALUES (?, ?, ?, ?, ?)',
+      [taskId, userId, text, sortOrder, createdAt],
+      function (runErr) {
+        if (runErr) return res.status(500).json({ error: 'DB error', details: runErr.message });
+        res.status(201).json({ id: this.lastID, item_text: text, sort_order: sortOrder, created_at: createdAt });
+      }
+    );
+  });
+});
+
+app.delete('/api/shopping/item/:id', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  db.run('DELETE FROM shopping_list_items WHERE id = ? AND user_id = ?', [id, userId], function (err) {
+    if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'No encontrado' });
+    res.status(204).send();
+  });
+});
+
+function startHttpServer() {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
+  });
+}
 

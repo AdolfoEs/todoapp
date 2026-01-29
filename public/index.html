@@ -18,9 +18,14 @@
           <h1 id="appTitle" class="title">Mi lista de tareas</h1>
           <p class="subtitle">Hola, <span id="userName">Usuario</span></p>
         </div>
-        <button id="logoutBtn" class="btn btn-ghost" type="button" title="Cerrar sesión">
-          Salir
-        </button>
+        <div class="header-actions">
+          <button id="calendarBtn" class="btn btn-ghost" type="button" title="Ver calendario" aria-label="Calendario">
+            📅 Calendario
+          </button>
+          <button id="logoutBtn" class="btn btn-ghost" type="button" title="Cerrar sesión">
+            Salir
+          </button>
+        </div>
       </header>
 
       <section class="panel">
@@ -60,18 +65,13 @@
             <button class="chip" id="filterPending" type="button">Pendientes</button>
             <button class="chip" id="filterDone" type="button">Completadas</button>
           </div>
-
-          <div class="right">
-            <button id="clearDoneBtn" class="btn btn-ghost" type="button" title="Borra todas las completadas">
-              Limpiar completadas
-            </button>
-          </div>
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel panel-tasks">
         <div class="meta">
-          <span id="counter" class="counter">0 tareas</span>
+          <div class="meta-counter" id="counter" aria-live="polite"></div>
+          <span id="currentDateDisplay" class="meta-date"></span>
           <span class="hint">Tip: doble click en el texto para editar.</span>
         </div>
 
@@ -93,6 +93,29 @@
       </footer>
     </div>
 
+    <!-- Modal Calendario -->
+    <div id="modalCalendar" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal modal-calendar" role="dialog" aria-modal="true" aria-labelledby="modalCalendarTitle">
+        <h2 id="modalCalendarTitle" class="modal-title">📅 Calendario</h2>
+        <div class="calendar-nav">
+          <button type="button" id="calendarPrevMonth" class="btn btn-ghost" aria-label="Mes anterior">‹</button>
+          <span id="calendarMonthYear" class="calendar-month-year"></span>
+          <button type="button" id="calendarNextMonth" class="btn btn-ghost" aria-label="Mes siguiente">›</button>
+        </div>
+        <div id="calendarGrid" class="calendar-grid" role="grid" aria-label="Calendario mensual"></div>
+        <button type="button" class="modal-close" onclick="window.closeModalCalendar?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
+    <!-- Modal Día (detalle de tareas de un día) -->
+    <div id="modalDay" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal modal-day" role="dialog" aria-modal="true" aria-labelledby="modalDayTitle">
+        <h2 id="modalDayTitle" class="modal-title">Día</h2>
+        <div id="modalDayList" class="day-task-list"></div>
+        <button type="button" class="modal-close" onclick="window.closeModalDay?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
     <!-- Modal 1: tipo de comida -->
     <div id="modalMealType" class="modal-overlay is-hidden" aria-hidden="true">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalMealTypeTitle">
@@ -104,6 +127,71 @@
           <button type="button" class="btn btn-primary modal-meal-btn" data-meal="cena">Cena</button>
         </div>
         <button type="button" class="modal-close" onclick="window.closeModalMealType?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
+    <!-- Modal Lectura (libro/leer) -->
+    <div id="modalLectura" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalLecturaTitle">
+        <h2 id="modalLecturaTitle" class="modal-title">📖 Lectura</h2>
+        <div class="modal-lectura-form">
+          <div class="field">
+            <label class="label" for="lecturaBookTitle">Título del libro</label>
+            <input id="lecturaBookTitle" class="input" type="text" placeholder="Ej: Cien años de soledad" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label class="label" for="lecturaCurrentPage">Página actual</label>
+            <input id="lecturaCurrentPage" class="input" type="number" min="0" placeholder="Ej: 42" />
+          </div>
+          <div class="modal-lectura-actions">
+            <button type="button" id="lecturaSaveBtn" class="btn btn-primary">Guardar</button>
+          </div>
+        </div>
+        <button type="button" class="modal-close" onclick="window.closeModalLectura?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
+    <!-- Modal Gym / Entrenamiento -->
+    <div id="modalGym" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal modal-gym" role="dialog" aria-modal="true" aria-labelledby="modalGymTitle">
+        <h2 id="modalGymTitle" class="modal-title">💪 Entrenamiento</h2>
+        <div class="modal-gym-form">
+          <div class="field">
+            <label class="label" for="gymRoutine">Rutina o ejercicio</label>
+            <input id="gymRoutine" class="input" type="text" placeholder="Ej: Pecho, espalda, 5 km" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label class="label" for="gymDuration">Duración (min)</label>
+            <input id="gymDuration" class="input" type="number" min="0" placeholder="Ej: 45" />
+          </div>
+          <div class="gym-timer-section">
+            <h3 class="gym-timer-title">Timer por series</h3>
+            <div class="gym-timer-fields">
+              <div class="field">
+                <label class="label" for="gymSeries">Nº de series</label>
+                <input id="gymSeries" class="input" type="number" min="1" placeholder="5" />
+              </div>
+              <div class="field">
+                <label class="label" for="gymSecondsPerSet">Segundos por serie</label>
+                <input id="gymSecondsPerSet" class="input" type="number" min="1" placeholder="20" />
+              </div>
+              <div class="field">
+                <label class="label" for="gymRestSeconds">Descanso entre series (s)</label>
+                <input id="gymRestSeconds" class="input" type="number" min="0" placeholder="30" />
+              </div>
+            </div>
+            <div id="gymTimerDisplay" class="gym-timer-display is-hidden">Serie 1/5 · 0:20</div>
+            <div class="gym-timer-btns">
+              <button type="button" id="gymTimerStart" class="btn btn-primary">Iniciar</button>
+              <button type="button" id="gymTimerPause" class="btn btn-ghost is-hidden">Pausar</button>
+              <button type="button" id="gymTimerReset" class="btn btn-ghost">Reiniciar</button>
+            </div>
+          </div>
+          <div class="modal-gym-actions">
+            <button type="button" id="gymSaveBtn" class="btn btn-primary">Guardar</button>
+          </div>
+        </div>
+        <button type="button" class="modal-close" onclick="window.closeModalGym?.()" aria-label="Cerrar">×</button>
       </div>
     </div>
 
@@ -120,10 +208,25 @@
           <textarea id="nutritionIngredients" class="input modal-textarea" rows="4" placeholder="2 huevos&#10;100g pollo"></textarea>
           <div class="modal-nutrition-actions">
             <button type="button" id="nutritionCalcBtn" class="btn btn-primary">Calcular</button>
+            <button type="button" id="nutritionSaveBtnFixed" class="btn btn-primary btn-guardar-macros">Guardar</button>
           </div>
         </div>
         <div id="nutritionResult" class="nutrition-result is-hidden"></div>
         <button type="button" class="modal-close" onclick="window.closeModalNutrition?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
+    <!-- Modal Lista de compras -->
+    <div id="modalShopping" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal modal-shopping" role="dialog" aria-modal="true" aria-labelledby="modalShoppingTitle">
+        <h2 id="modalShoppingTitle" class="modal-title">🛒 Lista de compras</h2>
+        <div class="shopping-add-row">
+          <input id="shoppingItemInput" class="input" type="text" placeholder="Ej: leche, pan, huevos" autocomplete="off" />
+          <button type="button" id="shoppingAddBtn" class="btn btn-primary">Agregar</button>
+        </div>
+        <ul id="shoppingList" class="shopping-list" aria-label="Artículos"></ul>
+        <p id="shoppingEmpty" class="shopping-empty is-hidden">Aún no hay artículos. Agrega uno arriba.</p>
+        <button type="button" class="modal-close" onclick="window.closeModalShopping?.()" aria-label="Cerrar">×</button>
       </div>
     </div>
 
