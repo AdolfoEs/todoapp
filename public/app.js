@@ -44,7 +44,6 @@ const endInput = document.getElementById("endTime");
 const addBtn = document.getElementById("addBtn");
 const list = document.getElementById("taskList");
 
-const counter = document.getElementById("counter");
 const currentDateDisplay = document.getElementById("currentDateDisplay");
 const emptyState = document.getElementById("emptyState");
 
@@ -105,22 +104,6 @@ function render() {
   const total = tasks.length;
   const done = tasks.filter((t) => Number(t.completed) === 1).length;
   const pending = total - done;
-
-  if (counter) {
-    counter.innerHTML = '';
-    const totalBadge = document.createElement('span');
-    totalBadge.className = 'counter-badge counter-total';
-    totalBadge.textContent = `${total} tareas`;
-    const pendingBadge = document.createElement('span');
-    pendingBadge.className = 'counter-badge counter-pending';
-    pendingBadge.textContent = `${pending} pendientes`;
-    const doneBadge = document.createElement('span');
-    doneBadge.className = 'counter-badge counter-done';
-    doneBadge.textContent = `${done} completadas`;
-    counter.appendChild(totalBadge);
-    counter.appendChild(pendingBadge);
-    counter.appendChild(doneBadge);
-  }
 
   if (emptyState) {
     emptyState.classList.toggle("is-hidden", total !== 0);

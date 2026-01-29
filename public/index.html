@@ -32,7 +32,10 @@
         <div class="row">
           <div style="display: grid; gap:8px;">
             <div class="field">
-              <label class="label" for="taskInput">Nueva tarea</label>
+              <div class="label-row" style="display:flex;justify-content:space-between;align-items:center;">
+                <label class="label" for="taskInput">Nueva tarea</label>
+                <span id="currentDateDisplay" class="meta-date"></span>
+              </div>
               <input
                 id="taskInput"
                 class="input"
@@ -69,12 +72,6 @@
       </section>
 
       <section class="panel panel-tasks">
-        <div class="meta">
-          <div class="meta-counter" id="counter" aria-live="polite"></div>
-          <span id="currentDateDisplay" class="meta-date"></span>
-          <span class="hint">Tip: doble click en el texto para editar.</span>
-        </div>
-
         <ul id="taskList" class="list" aria-label="Lista de tareas"></ul>
 
         <div id="emptyState" class="empty is-hidden" aria-live="polite">

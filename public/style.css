@@ -476,6 +476,8 @@ input[type="time"].input {
     .time-row { flex-direction: column; align-items: stretch; }
     .time-row input[type="time"] { max-width: 100%; width: 100%; }
   }
+
+  .footer { display: none; }
 }
 
 /* Tablet: 481–1024px — two-column form and medium card width */
@@ -647,6 +649,9 @@ input[type="time"].input {
   justify-content: center;
   gap: 10px;
   padding: 12px 0 0;
+}
+@media (max-width: 480px) {
+  .footer { display: none; }
 }
 .dot { opacity: 0.6; }
 

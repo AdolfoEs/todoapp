@@ -51,7 +51,7 @@ function isReadingTask(title) {
 }
 
 // Palabras que marcan una tarea como "gym/entrenamiento" (botón 💪)
-const GYM_KEYWORDS = ['gym', 'deporte', 'correr', 'pesas', 'gimnasio', 'crossfit', 'cross', 'pechamen', 'espalda', 'piernas'];
+const GYM_KEYWORDS = ['gym', 'deporte', 'correr', 'pesas', 'gimnasio', 'crossfit', 'cross', 'pechamen', 'espalda', 'piernas', 'ejercicio', 'entrenar'];
 function isGymTask(title) {
   if (!title || typeof title !== 'string') return 0;
   const t = title.toLowerCase().trim();
