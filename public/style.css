@@ -588,6 +588,26 @@ input[type="time"].input {
   gap: 12px;
   padding-right: 4px;
 }
+.day-modal-add {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.day-modal-add-title {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.day-modal-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.day-modal-add-times {
+  display: flex;
+  gap: 8px;
+}
+.day-modal-add-times .input { flex: 1; min-width: 0; }
 .day-task-item {
   padding: 12px 14px;
   border-radius: 12px;
@@ -822,13 +842,27 @@ input[type="time"].input {
 
 /* Modal Lista de compras */
 .modal-shopping { min-width: 320px; max-width: 420px; }
-.shopping-add-row {
+.modal-shopping .input,
+.modal-shopping textarea.input {
+  background: rgba(0, 0, 0, 0.35) !important;
+  color: var(--text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.shopping-notes-row {
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-items: center;
   margin-bottom: 14px;
 }
-.shopping-add-row .input { flex: 1; min-width: 0; }
+.shopping-notes-row .input {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+}
+.shopping-notes-row .btn-primary {
+  align-self: flex-start;
+  padding: 10px 16px;
+}
 .shopping-list {
   list-style: disc;
   padding-left: 1.5em;

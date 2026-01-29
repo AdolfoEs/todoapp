@@ -82,9 +82,15 @@ function setFilter(filter) {
   render();
 }
 
+function getTodayDateStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 async function refresh() {
+  const todayStr = getTodayDateStr();
   try {
-    tasks = await apiGetTasks();
+    tasks = await apiGetTasksByDate(todayStr);
   } catch (e) {
     console.error(e);
     tasks = [];
@@ -406,12 +412,14 @@ async function apiGetTasksByDate(date) {
   }
 }
 
-async function apiCreateTask(title, start_time = null, end_time = null) {
+async function apiCreateTask(title, start_time = null, end_time = null, date = null) {
   try {
+    const body = { title, start_time, end_time };
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) body.date = date;
     const res = await fetch(API_URL, {
       method: "POST",
       headers: getAuthHeaders(),
-      body: JSON.stringify({ title, start_time, end_time }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
@@ -619,8 +627,8 @@ const nutritionSaveBtnFixed = document.getElementById('nutritionSaveBtnFixed');
 let lastCalculatedNutrition = null; // { data: { calories, protein, carbs, fat }, text }
 
 const modalShopping = document.getElementById('modalShopping');
-const shoppingItemInput = document.getElementById('shoppingItemInput');
-const shoppingAddBtn = document.getElementById('shoppingAddBtn');
+const shoppingNotesInput = document.getElementById('shoppingNotesInput');
+const shoppingSaveListBtn = document.getElementById('shoppingSaveListBtn');
 const shoppingList = document.getElementById('shoppingList');
 const shoppingEmpty = document.getElementById('shoppingEmpty');
 
@@ -635,6 +643,12 @@ const calendarNextMonth = document.getElementById('calendarNextMonth');
 const modalDay = document.getElementById('modalDay');
 const modalDayTitle = document.getElementById('modalDayTitle');
 const modalDayList = document.getElementById('modalDayList');
+const dayModalTaskTitle = document.getElementById('dayModalTaskTitle');
+const dayModalStartTime = document.getElementById('dayModalStartTime');
+const dayModalEndTime = document.getElementById('dayModalEndTime');
+const dayModalAddBtn = document.getElementById('dayModalAddBtn');
+
+let currentDayModalDate = null;
 
 let calendarCurrentYear = new Date().getFullYear();
 let calendarCurrentMonth = new Date().getMonth();
@@ -700,6 +714,7 @@ function onCalendarDateClick(date) {
 }
 
 function openDayModal(date) {
+  currentDayModalDate = date;
   const d = new Date(date + 'T12:00:00');
   const dayLabel = d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
   if (modalDayTitle) modalDayTitle.textContent = 'Día ' + dayLabel;
@@ -708,6 +723,9 @@ function openDayModal(date) {
     modalDay.classList.remove('is-hidden');
     modalDay.setAttribute('aria-hidden', 'false');
   }
+  if (dayModalTaskTitle) dayModalTaskTitle.value = '';
+  if (dayModalStartTime) dayModalStartTime.value = '';
+  if (dayModalEndTime) dayModalEndTime.value = '';
 }
 
 function closeModalDay() {
@@ -715,6 +733,7 @@ function closeModalDay() {
     modalDay.classList.add('is-hidden');
     modalDay.setAttribute('aria-hidden', 'true');
   }
+  currentDayModalDate = null;
 }
 
 function renderDayDetail(dayTasks, date) {
@@ -806,6 +825,30 @@ if (calendarNextMonth) calendarNextMonth.addEventListener('click', () => {
 
 window.closeModalCalendar = closeModalCalendar;
 window.closeModalDay = closeModalDay;
+
+if (dayModalAddBtn && dayModalTaskTitle) {
+  dayModalAddBtn.addEventListener('click', async () => {
+    const title = (dayModalTaskTitle.value || '').trim();
+    if (!title || !currentDayModalDate) return;
+    const start_time = dayModalStartTime?.value || null;
+    const end_time = dayModalEndTime?.value || null;
+    dayModalAddBtn.disabled = true;
+    try {
+      await apiCreateTask(title, start_time, end_time, currentDayModalDate);
+      dayModalTaskTitle.value = '';
+      if (dayModalStartTime) dayModalStartTime.value = '';
+      if (dayModalEndTime) dayModalEndTime.value = '';
+      const dayTasks = await apiGetTasksByDate(currentDayModalDate);
+      renderDayDetail(dayTasks, currentDayModalDate);
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert('Error al crear tarea.');
+    } finally {
+      dayModalAddBtn.disabled = false;
+    }
+  });
+}
 
 let currentReadingTask = null;
 let currentGymTask = null;
@@ -1192,7 +1235,7 @@ function renderShoppingList(items) {
 
 function openModalShopping(task) {
   currentShoppingTask = task;
-  if (shoppingItemInput) shoppingItemInput.value = '';
+  if (shoppingNotesInput) shoppingNotesInput.value = '';
   if (shoppingList) shoppingList.innerHTML = '';
   if (shoppingEmpty) shoppingEmpty.classList.remove('is-hidden');
   if (modalShopping) {
@@ -1203,13 +1246,16 @@ function openModalShopping(task) {
     loadShoppingItems(task.id)
       .then((items) => {
         renderShoppingList(items);
+        if (shoppingNotesInput && items && items.length > 0) {
+          shoppingNotesInput.value = items.map((i) => i.item_text).join('\n');
+        }
       })
       .catch((e) => {
         console.error(e);
         renderShoppingList([]);
       });
   }
-  requestAnimationFrame(() => shoppingItemInput?.focus());
+  requestAnimationFrame(() => shoppingNotesInput?.focus());
 }
 
 function closeModalShopping() {
@@ -1220,36 +1266,41 @@ function closeModalShopping() {
   currentShoppingTask = null;
 }
 
-if (shoppingAddBtn && shoppingItemInput) {
-  const addShoppingItem = async () => {
-    const text = (shoppingItemInput.value || '').trim();
-    if (!text || !currentShoppingTask || !currentShoppingTask.id) return;
+if (shoppingSaveListBtn && shoppingNotesInput) {
+  const saveShoppingList = async () => {
+    const raw = (shoppingNotesInput.value || '').trim();
+    if (!raw || !currentShoppingTask || !currentShoppingTask.id) return;
+    const lines = [...new Set(raw.split('\n').map((s) => s.trim()).filter(Boolean))];
+    if (lines.length === 0) return;
     const base = API_URL.replace(/\/tasks$/, '');
+    shoppingSaveListBtn.disabled = true;
     try {
-      const res = await fetch(`${base}/api/shopping/add`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: currentShoppingTask.id, item_text: text })
-      });
-      if (!res.ok) throw new Error('Error al agregar');
-      shoppingItemInput.value = '';
-      await res.json();
+      const existing = await loadShoppingItems(currentShoppingTask.id);
+      const existingText = new Set((existing || []).map((i) => i.item_text));
+      for (const item_text of lines) {
+        if (existingText.has(item_text)) continue;
+        const res = await fetch(`${base}/api/shopping/add`, {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_id: currentShoppingTask.id, item_text })
+        });
+        if (!res.ok) throw new Error('Error al agregar');
+        await res.json();
+        existingText.add(item_text);
+      }
       const list = await loadShoppingItems(currentShoppingTask.id);
       renderShoppingList(list);
       if (shoppingEmpty) shoppingEmpty.classList.add('is-hidden');
       await refresh();
+      shoppingNotesInput.value = list.map((i) => i.item_text).join('\n');
     } catch (e) {
       console.error(e);
       alert('Error al agregar.');
+    } finally {
+      shoppingSaveListBtn.disabled = false;
     }
   };
-  shoppingAddBtn.addEventListener('click', addShoppingItem);
-  shoppingItemInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addShoppingItem();
-    }
-  });
+  shoppingSaveListBtn.addEventListener('click', saveShoppingList);
 }
 
 if (lecturaSaveBtn && lecturaBookTitle && lecturaCurrentPage) {

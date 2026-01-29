@@ -109,6 +109,17 @@
       <div class="modal modal-day" role="dialog" aria-modal="true" aria-labelledby="modalDayTitle">
         <h2 id="modalDayTitle" class="modal-title">Día</h2>
         <div id="modalDayList" class="day-task-list"></div>
+        <div class="day-modal-add">
+          <p class="day-modal-add-title">Añadir tarea para este día</p>
+          <div class="day-modal-add-form">
+            <input id="dayModalTaskTitle" class="input" type="text" placeholder="Título de la tarea" autocomplete="off" />
+            <div class="day-modal-add-times">
+              <input id="dayModalStartTime" class="input" type="time" aria-label="Desde" />
+              <input id="dayModalEndTime" class="input" type="time" aria-label="Hasta" />
+            </div>
+            <button type="button" id="dayModalAddBtn" class="btn btn-primary">Agregar</button>
+          </div>
+        </div>
         <button type="button" class="modal-close" onclick="window.closeModalDay?.()" aria-label="Cerrar">×</button>
       </div>
     </div>
@@ -217,9 +228,9 @@
     <div id="modalShopping" class="modal-overlay is-hidden" aria-hidden="true">
       <div class="modal modal-shopping" role="dialog" aria-modal="true" aria-labelledby="modalShoppingTitle">
         <h2 id="modalShoppingTitle" class="modal-title">🛒 Lista de compras</h2>
-        <div class="shopping-add-row">
-          <input id="shoppingItemInput" class="input" type="text" placeholder="Ej: leche, pan, huevos" autocomplete="off" />
-          <button type="button" id="shoppingAddBtn" class="btn btn-primary">Agregar</button>
+        <div class="shopping-notes-row">
+          <textarea id="shoppingNotesInput" class="input" rows="6" placeholder="Un artículo por línea. Ej:&#10;leche&#10;pan&#10;huevos" autocomplete="off"></textarea>
+          <button type="button" id="shoppingSaveListBtn" class="btn btn-primary">Guardar lista</button>
         </div>
         <ul id="shoppingList" class="shopping-list" aria-label="Artículos"></ul>
         <p id="shoppingEmpty" class="shopping-empty is-hidden">Aún no hay artículos. Agrega uno arriba.</p>
