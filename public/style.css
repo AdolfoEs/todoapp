@@ -921,6 +921,35 @@ input[type="time"].input {
 }
 .actions .btn-gym { margin-right: 4px; }
 
+/* Botón Google Calendar (solo icono) */
+.btn-gcal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.btn-gcal:hover {
+  transform: translateY(-2px);
+  background: rgba(255,255,255,0.14);
+}
+.btn-gcal:active {
+  transform: translateY(0);
+}
+.btn-gcal-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.actions .btn-gcal { margin-right: 4px; }
+
 .task-gym {
   font-size: 12px;
   margin-top: 2px;

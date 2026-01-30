@@ -127,6 +127,33 @@ function applyFilter(all, filter) {
   return all;
 }
 
+function addTaskToGoogleCalendar(task) {
+  const title = (task.title || '').trim();
+  if (!title) return;
+  const dateStr = task.date || (task.created_at ? String(task.created_at).slice(0, 10) : null);
+  const baseDate = dateStr ? dateStr.replace(/-/g, '') : null;
+  if (!baseDate) return;
+
+  let datesParam;
+  if (task.start_time && task.end_time) {
+    const start = (task.start_time.length === 5 ? task.start_time + ':00' : task.start_time).slice(0, 8).replace(/:/g, '');
+    const end = (task.end_time.length === 5 ? task.end_time + ':00' : task.end_time).slice(0, 8).replace(/:/g, '');
+    datesParam = baseDate + 'T' + start + '/' + baseDate + 'T' + end;
+  } else if (task.start_time) {
+    const start = (task.start_time.length === 5 ? task.start_time + ':00' : task.start_time).slice(0, 8).replace(/:/g, '');
+    const endHour = parseInt(task.start_time.slice(0, 2), 10) + 1;
+    const endMin = task.start_time.length >= 5 ? task.start_time.slice(3, 5) : '00';
+    const endStr = String(endHour).padStart(2, '0') + endMin + '00';
+    datesParam = baseDate + 'T' + start + '/' + baseDate + 'T' + endStr;
+  } else {
+    datesParam = baseDate + '/' + baseDate;
+  }
+
+  const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' +
+    encodeURIComponent(title) + '&dates=' + datesParam;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 function renderTaskItem(task) {
   const li = document.createElement("li");
   li.className = "item";
@@ -282,6 +309,15 @@ function renderTaskItem(task) {
     actions.appendChild(shopBtn);
   }
 
+  const gcalBtn = document.createElement("button");
+  gcalBtn.className = "btn-gcal";
+  gcalBtn.type = "button";
+  gcalBtn.title = "Añadir a Google Calendar";
+  gcalBtn.setAttribute("aria-label", "Añadir a Google Calendar");
+  gcalBtn.innerHTML = '<svg class="btn-gcal-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2" fill="#fff" stroke="rgba(0,0,0,.1)" stroke-width=".6"/><rect x="2" y="3" width="20" height="5" rx="2" fill="#4285F4"/><rect x="2" y="19" width="5" height="2" fill="#34A853"/><rect x="17" y="19" width="5" height="2" fill="#EA4335"/><rect x="9" y="19" width="6" height="2" fill="#FBBC04"/><text x="12" y="15.5" text-anchor="middle" fill="#5f6368" font-size="7" font-family="sans-serif" font-weight="700">31</text></svg>';
+  gcalBtn.addEventListener("click", () => addTaskToGoogleCalendar(task));
+  actions.appendChild(gcalBtn);
+
   actions.appendChild(delBtn);
 
   li.appendChild(check);
@@ -360,7 +396,7 @@ async function onAdd() {
   const end_time = endInput?.value ? endInput.value : null;
 
   try {
-    await apiCreateTask(text, start_time, end_time);
+    await apiCreateTask(text, start_time, end_time, getTodayDateStr());
   } catch (e) {
     console.error(e);
     alert('Error al crear tarea');

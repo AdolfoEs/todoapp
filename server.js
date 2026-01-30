@@ -492,6 +492,18 @@ app.get('/tasks', authenticateToken, (req, res) => {
             byTask[m.task_id].push(m);
           });
           rows.forEach(t => { t.meal_logs = byTask[t.id] || []; });
+          // Poblar last_* desde el meal_log más reciente para que el front muestre calorías en la barra
+          rows.forEach(t => {
+            const logs = t.meal_logs || [];
+            const last = logs[logs.length - 1];
+            if (last) {
+              t.last_meal_type = last.meal_type;
+              t.last_calories = last.calories;
+              t.last_protein = last.protein;
+              t.last_carbs = last.carbs;
+              t.last_fat = last.fat;
+            }
+          });
           res.json(rows);
         }
       );
