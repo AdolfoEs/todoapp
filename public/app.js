@@ -4,9 +4,10 @@ const API_URL = "/tasks";
 const token = localStorage.getItem('token');
 const user = JSON.parse(localStorage.getItem('user') || 'null');
 
-// Si no hay token, redirigir al login
+// Si no hay token, redirigir al login y no cargar la app
 if (!token) {
   window.location.href = '/login.html';
+  return;
 }
 
 // Función para obtener headers con autenticación
@@ -685,6 +686,7 @@ const dayModalEndTime = document.getElementById('dayModalEndTime');
 const dayModalAddBtn = document.getElementById('dayModalAddBtn');
 
 let currentDayModalDate = null;
+let lastRenderedDayTasks = [];
 
 let calendarCurrentYear = new Date().getFullYear();
 let calendarCurrentMonth = new Date().getMonth();
@@ -776,8 +778,10 @@ function renderDayDetail(dayTasks, date) {
   if (!modalDayList) return;
   if (!dayTasks || dayTasks.length === 0) {
     modalDayList.innerHTML = '<p class="day-empty">No hay tareas este día.</p>';
+    lastRenderedDayTasks = [];
     return;
   }
+  lastRenderedDayTasks = dayTasks;
   // Totales de macros del día (suma de todos los meal_logs)
   let totalCal = 0, totalP = 0, totalC = 0, totalF = 0;
   dayTasks.forEach((t) => {
@@ -805,6 +809,7 @@ function renderDayDetail(dayTasks, date) {
     html += `<div class="day-task-header"><span class="day-task-title">${escapeHtml(t.title)}</span>`;
     if (timeStr) html += `<span class="day-task-time">${timeStr}</span>`;
     html += done ? '<span class="day-task-badge">Completada</span>' : '';
+    html += '<button type="button" class="icon-btn danger day-task-delete" data-task-id="' + escapeHtml(String(t.id)) + '" title="Eliminar" aria-label="Eliminar">🗑</button>';
     html += '</div>';
     if (t.is_food_task === 1 || t.is_food_task === true) {
       const meals = t.meal_logs || [];
@@ -834,6 +839,11 @@ function renderDayDetail(dayTasks, date) {
       if (t.gym_series != null && t.gym_seconds_per_set != null) parts.push(t.gym_series + ' series × ' + t.gym_seconds_per_set + ' s');
       if (t.gym_rest_seconds != null) parts.push('descanso ' + t.gym_rest_seconds + ' s');
       if (parts.length) html += '<div class="day-task-detail day-task-gym">💪 ' + parts.join(' · ') + '</div>';
+    }
+    if (t.is_shopping_task === 1 || t.is_shopping_task === true) {
+      html += '<div class="day-task-detail day-task-shopping-actions">';
+      html += '<button type="button" class="btn btn-ghost day-task-open-shopping" data-task-id="' + escapeHtml(String(t.id)) + '" title="Abrir lista de compras">🛒 Lista / Agregar artículos</button>';
+      html += '</div>';
     }
     html += '</div>';
   });
@@ -883,6 +893,33 @@ if (dayModalAddBtn && dayModalTaskTitle) {
     } finally {
       dayModalAddBtn.disabled = false;
     }
+  });
+}
+
+if (modalDayList) {
+  modalDayList.addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.day-task-delete');
+    if (delBtn) {
+      const id = delBtn.getAttribute('data-task-id');
+      if (!id || !currentDayModalDate) return;
+      if (!confirm('¿Eliminar esta tarea?')) return;
+      try {
+        await apiDeleteTask(id);
+        const dayTasks = await apiGetTasksByDate(currentDayModalDate);
+        renderDayDetail(dayTasks, currentDayModalDate);
+        await refresh();
+      } catch (err) {
+        console.error(err);
+        alert('Error al eliminar tarea.');
+      }
+      return;
+    }
+    const btn = e.target.closest('.day-task-open-shopping');
+    if (!btn) return;
+    const id = btn.getAttribute('data-task-id');
+    if (!id) return;
+    const task = lastRenderedDayTasks.find((t) => String(t.id) === id);
+    if (task) openModalShopping(task);
   });
 }
 
@@ -1329,6 +1366,10 @@ if (shoppingSaveListBtn && shoppingNotesInput) {
       if (shoppingEmpty) shoppingEmpty.classList.add('is-hidden');
       await refresh();
       shoppingNotesInput.value = list.map((i) => i.item_text).join('\n');
+      if (currentDayModalDate) {
+        const dayTasks = await apiGetTasksByDate(currentDayModalDate);
+        renderDayDetail(dayTasks, currentDayModalDate);
+      }
     } catch (e) {
       console.error(e);
       alert('Error al agregar.');

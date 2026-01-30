@@ -634,6 +634,7 @@ input[type="time"].input {
   color: var(--ok);
   margin-left: auto;
 }
+.day-task-delete { margin-left: auto; }
 .day-task-detail {
   font-size: 12px;
   color: var(--muted-2);
@@ -641,6 +642,8 @@ input[type="time"].input {
   padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
+.day-task-shopping-actions { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); }
+.day-task-open-shopping { font-size: 13px; padding: 8px 12px; }
 .day-meal-row { margin-bottom: 2px; }
 .day-meal-row:last-child { margin-bottom: 0; }
 .day-macros-summary {
