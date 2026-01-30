@@ -7,7 +7,6 @@ const user = JSON.parse(localStorage.getItem('user') || 'null');
 // Si no hay token, redirigir al login y no cargar la app
 if (!token) {
   window.location.href = '/login.html';
-  return;
 }
 
 // Función para obtener headers con autenticación
@@ -25,40 +24,43 @@ function logout() {
   window.location.href = '/login.html';
 }
 
-// Mostrar nombre de usuario si existe el elemento
-window.addEventListener('DOMContentLoaded', () => {
-  const userNameEl = document.getElementById('userName');
-  if (userNameEl && user) {
-    userNameEl.textContent = user.nombre;
-  }
-  
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', logout);
-  }
-});
-
-// --- DOM ---
-const input = document.getElementById("taskInput");
-const startInput = document.getElementById("startTime");
-const endInput = document.getElementById("endTime");
-const addBtn = document.getElementById("addBtn");
-const list = document.getElementById("taskList");
-
-const currentDateDisplay = document.getElementById("currentDateDisplay");
-const emptyState = document.getElementById("emptyState");
-
-const filterAll = document.getElementById("filterAll");
-const filterPending = document.getElementById("filterPending");
-const filterDone = document.getElementById("filterDone");
+// --- DOM (se asignan cuando el DOM está listo) ---
+let input, startInput, endInput, addBtn, list, currentDateDisplay, emptyState, filterAll, filterPending, filterDone;
 
 // --- State ---
 let tasks = [];
 let currentFilter = "all"; // all | pending | done
 
-// --- Init ---
-wireEvents();
-refresh();
+function init() {
+  input = document.getElementById("taskInput");
+  startInput = document.getElementById("startTime");
+  endInput = document.getElementById("endTime");
+  addBtn = document.getElementById("addBtn");
+  list = document.getElementById("taskList");
+  currentDateDisplay = document.getElementById("currentDateDisplay");
+  emptyState = document.getElementById("emptyState");
+  filterAll = document.getElementById("filterAll");
+  filterPending = document.getElementById("filterPending");
+  filterDone = document.getElementById("filterDone");
+
+  const userNameEl = document.getElementById('userName');
+  if (userNameEl && user) userNameEl.textContent = user.nombre;
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.addEventListener('click', logout);
+
+  wireEvents();
+  refresh();
+}
+
+// --- Init (solo cuando hay token y el DOM está listo) ---
+if (token) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+}
 
 function wireEvents() {
   addBtn.addEventListener("click", onAdd);
