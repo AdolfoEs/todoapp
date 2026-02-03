@@ -3,145 +3,289 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login - Mi To-Do App</title>
+    <title>Login - FluxList</title>
     <link rel="stylesheet" href="/style.css" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#5b8cff" />
+    <meta name="theme-color" content="#5b21b6" />
   </head>
 
-  <body>
-    <div class="app" role="application">
-      <header class="header">
-        <div>
-          <h1 class="title">Mi To-Do App</h1>
-          <p class="subtitle">Inicia sesión o crea una cuenta</p>
+  <body class="page-login">
+    <div class="login-bg-blobs" aria-hidden="true">
+      <div class="login-blob login-blob--purple"></div>
+      <div class="login-blob login-blob--blue"></div>
+      <div class="login-blob login-blob--pink"></div>
+    </div>
+    <div class="login-page" role="main">
+      <!-- Columna izquierda: marketing -->
+      <section class="login-hero">
+        <div class="login-pill">
+          <span class="login-pill-icon">✨ 🚀</span>
+          <span>La mejor app de tareas inteligentes 2026</span>
         </div>
-      </header>
+        <h1 class="login-brand">FluxList</h1>
+        <p class="login-tagline">Agenda inteligente que se adapta a ti. Cada tarea tiene su propia herramienta especializada.</p>
 
-      <section class="panel">
-        <!-- Tabs -->
-        <div class="filters" role="tablist" style="margin-bottom: 20px;">
-          <button class="chip is-active" id="tabLogin" type="button">Iniciar Sesión</button>
-          <button class="chip" id="tabRegister" type="button">Registrarse</button>
-        </div>
-
-        <!-- Login Form -->
-        <form id="loginForm" class="auth-form">
-          <div class="field">
-            <label class="label" for="loginUser">Usuario</label>
-            <input id="loginUser" class="input" type="text" placeholder="Tu nombre de usuario" autocomplete="username" required />
-          </div>
-          <div class="field">
-            <label class="label" for="loginPass">Contraseña</label>
-            <div style="position: relative; width: 100%;">
-              <input id="loginPass" class="input" type="password" placeholder="Tu contraseña" autocomplete="current-password" required style="padding-right: 45px; width: 100%;" />
-              <button type="button" id="toggleLoginPass" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+        <div class="login-features">
+          <div class="login-feature-card">
+            <div class="login-feature-icon login-feature-icon--pink">🧠</div>
+            <div class="login-feature-text">
+              <strong>Agenda Inteligente</strong>
+              <span>Sub-aplicaciones adaptadas a cada tipo de tarea</span>
             </div>
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
-            Iniciar Sesión
-          </button>
-        </form>
+          <div class="login-feature-card">
+            <div class="login-feature-icon login-feature-icon--orange">⚡</div>
+            <div class="login-feature-text">
+              <strong>Ultra Rápido</strong>
+              <span>Organiza tu día en segundos con herramientas personalizadas</span>
+            </div>
+          </div>
+          <div class="login-feature-card">
+            <div class="login-feature-icon login-feature-icon--blue">◎</div>
+            <div class="login-feature-text">
+              <strong>Enfoque Total</strong>
+              <span>Seguimiento específico: calorías, libros, ejercicio y más</span>
+            </div>
+          </div>
+        </div>
 
-        <!-- Register Form (hidden by default) -->
-        <form id="registerForm" class="auth-form" style="display: none;">
-          <div class="field">
-            <label class="label" for="regUser">Usuario</label>
-            <input id="regUser" class="input" type="text" placeholder="Elige un nombre de usuario" autocomplete="username" required />
+        <div class="login-social">
+          <div class="login-social-avatars" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
           </div>
-          <div class="field">
-            <label class="label" for="regEmail">Correo (opcional)</label>
-            <input id="regEmail" class="input" type="email" placeholder="tu@correo.com" autocomplete="email" />
+          <span class="login-social-stars">★★★★★</span>
+          <span class="login-social-text">+10,000 usuarios organizados</span>
+        </div>
+      </section>
+
+      <!-- Columna derecha: formulario -->
+      <div class="login-card-wrap">
+        <div class="login-card">
+          <div class="login-card-icon" aria-hidden="true">✓</div>
+
+          <div id="loginHeadLogin" class="login-card-head">
+            <h2 class="login-card-title">¡Bienvenido de vuelta!</h2>
+            <p class="login-card-subtitle">Inicia sesión para continuar</p>
           </div>
-          <div class="field">
-            <label class="label" for="regPass">Contraseña</label>
-            <div style="position: relative; width: 100%;">
-              <input id="regPass" class="input" type="password" placeholder="Contraseña segura" autocomplete="new-password" required minlength="8" style="padding-right: 45px; width: 100%;" />
-              <button type="button" id="toggleRegPass" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+          <div id="loginHeadRegister" class="login-card-head" style="display: none;">
+            <h2 class="login-card-title">¡Únete ahora!</h2>
+            <p class="login-card-subtitle">Crea tu cuenta gratuita</p>
+          </div>
+
+          <div class="filters login-card-tabs" role="tablist">
+            <button class="chip is-active" id="tabLogin" type="button">Iniciar Sesión</button>
+            <button class="chip" id="tabRegister" type="button">Registrarse</button>
+          </div>
+
+          <!-- Login Form -->
+          <form id="loginForm" class="auth-form">
+            <div class="field">
+              <label class="label" for="loginUser">Usuario</label>
+              <input id="loginUser" class="input login-input" type="text" placeholder="Tu nombre de usuario" autocomplete="username" required />
+            </div>
+            <div class="field">
+              <label class="label" for="loginPass">Contraseña</label>
+              <div class="input-wrap-password">
+                <input id="loginPass" class="input login-input" type="password" placeholder="Tu contraseña" autocomplete="current-password" required />
+                <button type="button" id="toggleLoginPass" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+              </div>
+            </div>
+            <a href="#" id="linkForgotPass" class="login-link">¿Olvidaste tu contraseña?</a>
+            <button type="submit" class="btn btn-login-gradient">
+              Iniciar Sesión →
+            </button>
+          </form>
+
+          <!-- Register Form (hidden by default) -->
+          <form id="registerForm" class="auth-form" style="display: none;">
+            <div class="field">
+              <label class="label" for="regUser">Nombre de usuario</label>
+              <input id="regUser" class="input login-input" type="text" placeholder="Tu nombre" autocomplete="username" required />
+            </div>
+            <div class="field">
+              <label class="label" for="regEmail">Email</label>
+              <input id="regEmail" class="input login-input" type="email" placeholder="tu@email.com" autocomplete="email" />
+            </div>
+            <div class="field">
+              <label class="label" for="regPass">Contraseña</label>
+              <div class="input-wrap-password">
+                <input id="regPass" class="input login-input" type="password" placeholder="********" autocomplete="new-password" required minlength="8" />
+                <button type="button" id="toggleRegPass" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+              </div>
             </div>
             <div class="field">
               <label class="label" for="regPassConfirm">Confirmar Contraseña</label>
-              <div style="position: relative; width: 100%;">
-                <input id="regPassConfirm" class="input" type="password" placeholder="Repite tu contraseña" autocomplete="new-password" required minlength="8" style="padding-right: 45px; width: 100%;" />
+              <div class="input-wrap-password">
+                <input id="regPassConfirm" class="input login-input" type="password" placeholder="Repite tu contraseña" autocomplete="new-password" required minlength="8" />
                 <button type="button" id="toggleRegPassConfirm" class="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
               </div>
-              <div id="password-match" style="font-size: 12px; margin-top: 6px; display: none;"></div>
+              <div id="password-match" class="login-password-match" style="display: none;"></div>
             </div>
-            <div class="password-requirements" style="font-size: 12px; color: #888; margin-top: 6px;">
+            <div class="password-requirements" id="passwordReqs">
               <div id="req-length">⬜ Mínimo 8 caracteres</div>
               <div id="req-upper">⬜ Al menos una mayúscula</div>
-              <div id="req-lower">⬜ Al menos una minúscula</div>
               <div id="req-number">⬜ Al menos un número</div>
-              <div id="req-symbol">⬜ Al menos un símbolo (!@#$%...)</div>
             </div>
+            <button type="submit" class="btn btn-login-gradient">
+              Registrarse →
+            </button>
+          </form>
+
+          <p class="login-switch-text" id="loginSwitchText">
+            ¿No tienes cuenta? <button type="button" id="linkToRegister" class="login-link-btn">Regístrate gratis</button>
+          </p>
+          <p class="login-switch-text" id="registerSwitchText" style="display: none;">
+            ¿Ya tienes cuenta? <button type="button" id="linkToLogin" class="login-link-btn">Inicia sesión</button>
+          </p>
+
+          <div id="message" class="login-message" style="display: none;"></div>
+
+          <footer class="login-card-footer">
+            <span class="login-card-footer-icon" aria-hidden="true">🔒</span>
+            <span>Tus datos están protegidos y encriptados</span>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Olvidé mi contraseña -->
+    <div id="modalForgotPass" class="modal-overlay is-hidden" aria-hidden="true">
+      <div class="modal modal-forgot-pass" role="dialog" aria-labelledby="modalForgotPassTitle">
+        <h2 id="modalForgotPassTitle" class="modal-title">Recuperar contraseña</h2>
+        <p class="modal-forgot-pass-text">Ingresa el correo con el que te registraste. Te enviaremos un enlace para restablecer tu contraseña.</p>
+        <form id="forgotPassForm" class="auth-form">
+          <div class="field">
+            <label class="label" for="forgotPassEmail">Correo</label>
+            <input id="forgotPassEmail" class="input login-input" type="email" placeholder="tu@email.com" autocomplete="email" required />
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
-            Crear Cuenta
-          </button>
+          <div id="forgotPassMessage" class="login-message" style="display: none;"></div>
+          <div class="modal-forgot-pass-actions">
+            <button type="button" id="forgotPassCancel" class="btn">Cancelar</button>
+            <button type="submit" class="btn btn-primary btn-login-gradient">Enviar enlace</button>
+          </div>
         </form>
-
-        <!-- Messages -->
-        <div id="message" class="message" style="margin-top: 16px; display: none;"></div>
-      </section>
-
-      <footer class="footer">
-        <span>Frontend: HTML/CSS/JS</span>
-        <span class="dot">•</span>
-        <span>Backend: Node + Express</span>
-        <span class="dot">•</span>
-        <span>DB: SQLite</span>
-      </footer>
+        <button type="button" class="modal-close" id="forgotPassClose" aria-label="Cerrar">×</button>
+      </div>
     </div>
 
     <script>
       const API_URL = '';
-      
-      // Elementos
+
       const tabLogin = document.getElementById('tabLogin');
       const tabRegister = document.getElementById('tabRegister');
       const loginForm = document.getElementById('loginForm');
       const registerForm = document.getElementById('registerForm');
+      const loginHeadLogin = document.getElementById('loginHeadLogin');
+      const loginHeadRegister = document.getElementById('loginHeadRegister');
       const messageDiv = document.getElementById('message');
+      const loginSwitchText = document.getElementById('loginSwitchText');
+      const registerSwitchText = document.getElementById('registerSwitchText');
 
-      // Si ya hay token, ir a la app
       if (localStorage.getItem('token')) {
         window.location.href = '/';
       }
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('reset') === 'ok') {
+        showMessage('Contraseña actualizada. Ya puedes iniciar sesión.');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
 
-      // Cambiar tabs
-      tabLogin.addEventListener('click', () => {
+      function showLoginTab() {
         tabLogin.classList.add('is-active');
         tabRegister.classList.remove('is-active');
         loginForm.style.display = 'block';
         registerForm.style.display = 'none';
+        if (loginHeadLogin) loginHeadLogin.style.display = 'block';
+        if (loginHeadRegister) loginHeadRegister.style.display = 'none';
+        if (loginSwitchText) loginSwitchText.style.display = 'block';
+        if (registerSwitchText) registerSwitchText.style.display = 'none';
         hideMessage();
-      });
+      }
 
-      tabRegister.addEventListener('click', () => {
+      function showRegisterTab() {
         tabRegister.classList.add('is-active');
         tabLogin.classList.remove('is-active');
         registerForm.style.display = 'block';
         loginForm.style.display = 'none';
+        if (loginHeadLogin) loginHeadLogin.style.display = 'none';
+        if (loginHeadRegister) loginHeadRegister.style.display = 'block';
+        if (loginSwitchText) loginSwitchText.style.display = 'none';
+        if (registerSwitchText) registerSwitchText.style.display = 'block';
         hideMessage();
+      }
+
+      tabLogin.addEventListener('click', showLoginTab);
+      tabRegister.addEventListener('click', showRegisterTab);
+      document.getElementById('linkToRegister').addEventListener('click', showRegisterTab);
+      document.getElementById('linkToLogin').addEventListener('click', showLoginTab);
+      const modalForgotPass = document.getElementById('modalForgotPass');
+      const linkForgotPass = document.getElementById('linkForgotPass');
+      const forgotPassForm = document.getElementById('forgotPassForm');
+      const forgotPassEmail = document.getElementById('forgotPassEmail');
+      const forgotPassMessage = document.getElementById('forgotPassMessage');
+      const forgotPassCancel = document.getElementById('forgotPassCancel');
+      const forgotPassClose = document.getElementById('forgotPassClose');
+
+      function openForgotPassModal() {
+        if (modalForgotPass) {
+          modalForgotPass.classList.remove('is-hidden');
+          modalForgotPass.setAttribute('aria-hidden', 'false');
+          forgotPassEmail.value = '';
+          forgotPassMessage.style.display = 'none';
+        }
+      }
+      function closeForgotPassModal() {
+        if (modalForgotPass) {
+          modalForgotPass.classList.add('is-hidden');
+          modalForgotPass.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      linkForgotPass.addEventListener('click', (e) => {
+        e.preventDefault();
+        openForgotPassModal();
+      });
+      forgotPassCancel.addEventListener('click', closeForgotPassModal);
+      forgotPassClose.addEventListener('click', closeForgotPassModal);
+      modalForgotPass.addEventListener('click', (e) => { if (e.target === modalForgotPass) closeForgotPassModal(); });
+
+      forgotPassForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = forgotPassEmail.value.trim();
+        if (!email) return;
+        forgotPassMessage.style.display = 'none';
+        try {
+          const res = await fetch(`${API_URL}/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json();
+          forgotPassMessage.style.display = 'block';
+          forgotPassMessage.className = 'login-message login-message--ok';
+          forgotPassMessage.textContent = data.message || 'Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña.';
+          if (data.error) {
+            forgotPassMessage.className = 'login-message login-message--error';
+            forgotPassMessage.textContent = data.error;
+          }
+        } catch (err) {
+          forgotPassMessage.style.display = 'block';
+          forgotPassMessage.className = 'login-message login-message--error';
+          forgotPassMessage.textContent = 'Error de conexión.';
+        }
       });
 
-      // Mostrar mensaje
       function showMessage(text, isError = false) {
         messageDiv.textContent = text;
         messageDiv.style.display = 'block';
-        messageDiv.style.padding = '12px';
-        messageDiv.style.borderRadius = '8px';
-        messageDiv.style.backgroundColor = isError ? '#fee' : '#efe';
-        messageDiv.style.color = isError ? '#c00' : '#060';
-        messageDiv.style.border = isError ? '1px solid #fcc' : '1px solid #cfc';
+        messageDiv.className = 'login-message ' + (isError ? 'login-message--error' : 'login-message--ok');
       }
 
       function hideMessage() {
         messageDiv.style.display = 'none';
       }
 
-      // Login
       loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const nombre = document.getElementById('loginUser').value.trim();
@@ -161,56 +305,42 @@
             return;
           }
 
-          // Guardar token y datos del usuario
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
-          
           showMessage('¡Bienvenido! Redirigiendo...');
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 1000);
-
+          setTimeout(() => { window.location.href = '/'; }, 1000);
         } catch (err) {
           showMessage('Error de conexión', true);
         }
       });
 
-      // Validación de contraseña en tiempo real
       const regPassInput = document.getElementById('regPass');
       regPassInput.addEventListener('input', () => {
         const password = regPassInput.value;
-        
         updateReq('req-length', password.length >= 8);
         updateReq('req-upper', /[A-Z]/.test(password));
-        updateReq('req-lower', /[a-z]/.test(password));
         updateReq('req-number', /[0-9]/.test(password));
-        updateReq('req-symbol', /[!@#$%^&*(),.?":{}|<>_\-]/.test(password));
       });
 
       function updateReq(id, valid) {
         const el = document.getElementById(id);
-        if (valid) {
-          el.style.color = '#0a0';
-          el.textContent = '✅ ' + el.textContent.substring(2);
-        } else {
-          el.style.color = '#888';
-          el.textContent = '⬜ ' + el.textContent.substring(2);
-        }
+        if (!el) return;
+        const text = el.textContent.substring(2).trim();
+        el.textContent = (valid ? '✅ ' : '⬜ ') + text;
+        el.style.color = valid ? '#0a0' : '#888';
       }
 
-      // Validación de confirmación de contraseña
       const regPassConfirmInput = document.getElementById('regPassConfirm');
       const passwordMatchDiv = document.getElementById('password-match');
 
       function checkPasswordMatch() {
         const password = regPassInput.value;
         const confirmPassword = regPassConfirmInput.value;
-        
+
         if (confirmPassword.length === 0) {
           passwordMatchDiv.style.display = 'none';
           return;
         }
-
         passwordMatchDiv.style.display = 'block';
         if (password === confirmPassword) {
           passwordMatchDiv.style.color = '#0a0';
@@ -224,11 +354,9 @@
       regPassConfirmInput.addEventListener('input', checkPasswordMatch);
       regPassInput.addEventListener('input', checkPasswordMatch);
 
-      // Toggle mostrar/ocultar contraseña
       function setupPasswordToggle(toggleBtnId, inputId) {
         const toggleBtn = document.getElementById(toggleBtnId);
         const input = document.getElementById(inputId);
-        
         if (toggleBtn && input) {
           toggleBtn.addEventListener('click', () => {
             const isPassword = input.type === 'password';
@@ -239,12 +367,10 @@
         }
       }
 
-      // Configurar toggles para todos los campos de contraseña
       setupPasswordToggle('toggleLoginPass', 'loginPass');
       setupPasswordToggle('toggleRegPass', 'regPass');
       setupPasswordToggle('toggleRegPassConfirm', 'regPassConfirm');
 
-      // Register
       registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const nombre = document.getElementById('regUser').value.trim();
@@ -252,7 +378,6 @@
         const password = document.getElementById('regPass').value;
         const confirmPassword = document.getElementById('regPassConfirm').value;
 
-        // Verificar que las contraseñas coincidan
         if (password !== confirmPassword) {
           showMessage('Las contraseñas no coinciden', true);
           return;
@@ -270,19 +395,17 @@
           if (!res.ok) {
             let errorMsg = data.error || 'Error al registrar';
             if (data.details && data.details.length > 0) {
-              errorMsg += ':\n• ' + data.details.join('\n• ');
+              errorMsg += ': ' + data.details.join(', ');
             }
             showMessage(errorMsg, true);
             return;
           }
 
           showMessage('¡Cuenta creada! Ahora puedes iniciar sesión.');
-          // Cambiar a tab de login
           setTimeout(() => {
-            tabLogin.click();
+            showLoginTab();
             document.getElementById('loginUser').value = nombre;
           }, 1500);
-
         } catch (err) {
           showMessage('Error de conexión', true);
         }

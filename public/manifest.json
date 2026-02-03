@@ -1,6 +1,6 @@
 {
-  "name": "Mis Tareas",
-  "short_name": "Tareas",
+  "name": "FluxList",
+  "short_name": "FluxList",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1220",

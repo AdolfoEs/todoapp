@@ -26,6 +26,7 @@ function logout() {
 
 // --- DOM (se asignan cuando el DOM está listo) ---
 let input, startInput, endInput, addBtn, list, currentDateDisplay, emptyState, filterAll, filterPending, filterDone;
+let dayProgressPct, dayProgressText, dayProgressCircle;
 
 // --- State ---
 let tasks = [];
@@ -42,6 +43,9 @@ function init() {
   filterAll = document.getElementById("filterAll");
   filterPending = document.getElementById("filterPending");
   filterDone = document.getElementById("filterDone");
+  dayProgressPct = document.getElementById("dayProgressPct");
+  dayProgressText = document.getElementById("dayProgressText");
+  dayProgressCircle = document.getElementById("dayProgressCircle");
 
   const userNameEl = document.getElementById('userName');
   if (userNameEl && user) userNameEl.textContent = user.nombre;
@@ -122,6 +126,13 @@ function render() {
     const d = new Date();
     currentDateDisplay.textContent = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   }
+
+  // Progreso del Día: círculo y texto
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const circumference = 339.3;
+  if (dayProgressPct) dayProgressPct.textContent = pct + '%';
+  if (dayProgressCircle) dayProgressCircle.setAttribute('stroke-dashoffset', circumference * (1 - pct / 100));
+  if (dayProgressText) dayProgressText.textContent = done + ' de ' + total + ' tareas completadas';
 }
 
 function applyFilter(all, filter) {
@@ -644,8 +655,16 @@ let currentMealType = null;
 const modalMealType = document.getElementById('modalMealType');
 const modalLectura = document.getElementById('modalLectura');
 const lecturaBookTitle = document.getElementById('lecturaBookTitle');
+const lecturaBookSubtitle = document.getElementById('lecturaBookSubtitle');
+const lecturaTotalPages = document.getElementById('lecturaTotalPages');
 const lecturaCurrentPage = document.getElementById('lecturaCurrentPage');
+const lecturaNotes = document.getElementById('lecturaNotes');
+const lecturaProgressPct = document.getElementById('lecturaProgressPct');
+const lecturaProgressBar = document.getElementById('lecturaProgressBar');
+const lecturaCurrentPageDisplay = document.getElementById('lecturaCurrentPageDisplay');
+const lecturaRemainingDisplay = document.getElementById('lecturaRemainingDisplay');
 const lecturaSaveBtn = document.getElementById('lecturaSaveBtn');
+const lecturaCancelBtn = document.getElementById('lecturaCancelBtn');
 const modalGym = document.getElementById('modalGym');
 const gymRoutine = document.getElementById('gymRoutine');
 const gymDuration = document.getElementById('gymDuration');
@@ -935,21 +954,42 @@ async function apiGetReadingProgress(taskId) {
   return res.json();
 }
 
-async function apiSaveReading(taskId, book_title, current_page) {
+async function apiSaveReading(taskId, book_title, current_page, total_pages, notes) {
   const base = API_URL.replace(/\/tasks$/, '');
   const res = await fetch(`${base}/api/reading/save`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ task_id: taskId, book_title, current_page })
+    body: JSON.stringify({ task_id: taskId, book_title, current_page, total_pages, notes })
   });
   if (!res.ok) throw new Error(res.statusText);
   return res.json();
 }
 
+function updateReadingProgressDisplay() {
+  const total = lecturaTotalPages && lecturaTotalPages.value.trim() !== '' ? parseInt(lecturaTotalPages.value, 10) : null;
+  const current = lecturaCurrentPage && lecturaCurrentPage.value.trim() !== '' ? parseInt(lecturaCurrentPage.value, 10) : null;
+  const totalNum = total != null && !isNaN(total) && total > 0 ? total : null;
+  const currentNum = current != null && !isNaN(current) && current >= 0 ? current : null;
+  let pct = 0;
+  let remaining = null;
+  if (totalNum != null && currentNum != null && totalNum > 0) {
+    pct = Math.min(100, Math.round((currentNum / totalNum) * 100));
+    remaining = Math.max(0, totalNum - currentNum);
+  }
+  if (lecturaProgressPct) lecturaProgressPct.textContent = pct + '%';
+  if (lecturaProgressBar) lecturaProgressBar.style.width = pct + '%';
+  if (lecturaCurrentPageDisplay) lecturaCurrentPageDisplay.textContent = currentNum != null ? String(currentNum) : '—';
+  if (lecturaRemainingDisplay) lecturaRemainingDisplay.textContent = remaining != null ? String(remaining) : '—';
+}
+
 function openModalLectura(task) {
   currentReadingTask = task;
   if (lecturaBookTitle) lecturaBookTitle.value = '';
+  if (lecturaTotalPages) lecturaTotalPages.value = '';
   if (lecturaCurrentPage) lecturaCurrentPage.value = '';
+  if (lecturaNotes) lecturaNotes.value = '';
+  if (lecturaBookSubtitle) lecturaBookSubtitle.textContent = 'libro';
+  updateReadingProgressDisplay();
   if (modalLectura) {
     modalLectura.classList.remove('is-hidden');
     modalLectura.setAttribute('aria-hidden', 'false');
@@ -957,7 +997,11 @@ function openModalLectura(task) {
   if (task && task.id) {
     apiGetReadingProgress(task.id).then((data) => {
       if (lecturaBookTitle) lecturaBookTitle.value = data.book_title || '';
+      if (lecturaBookSubtitle) lecturaBookSubtitle.textContent = (data.book_title && data.book_title.trim()) ? data.book_title.trim() : 'libro';
+      if (lecturaTotalPages) lecturaTotalPages.value = data.total_pages != null ? String(data.total_pages) : '';
       if (lecturaCurrentPage) lecturaCurrentPage.value = data.current_page != null ? String(data.current_page) : '';
+      if (lecturaNotes) lecturaNotes.value = data.notes || '';
+      updateReadingProgressDisplay();
     }).catch(() => {});
   }
 }
@@ -1382,15 +1426,24 @@ if (shoppingSaveListBtn && shoppingNotesInput) {
   shoppingSaveListBtn.addEventListener('click', saveShoppingList);
 }
 
+if (lecturaTotalPages) lecturaTotalPages.addEventListener('input', updateReadingProgressDisplay);
+if (lecturaCurrentPage) lecturaCurrentPage.addEventListener('input', updateReadingProgressDisplay);
+if (lecturaBookTitle) lecturaBookTitle.addEventListener('input', () => { if (lecturaBookSubtitle) lecturaBookSubtitle.textContent = lecturaBookTitle.value.trim() || 'libro'; });
+
+if (lecturaCancelBtn) lecturaCancelBtn.addEventListener('click', closeModalLectura);
+
 if (lecturaSaveBtn && lecturaBookTitle && lecturaCurrentPage) {
   lecturaSaveBtn.addEventListener('click', async () => {
     if (!currentReadingTask || !currentReadingTask.id) return;
     const book_title = lecturaBookTitle.value.trim();
     const pageVal = lecturaCurrentPage.value.trim();
     const current_page = pageVal === '' ? null : parseInt(pageVal, 10);
+    const totalVal = lecturaTotalPages ? lecturaTotalPages.value.trim() : '';
+    const total_pages = totalVal === '' ? null : parseInt(totalVal, 10);
+    const notes = lecturaNotes ? lecturaNotes.value.trim() : '';
     lecturaSaveBtn.disabled = true;
     try {
-      await apiSaveReading(currentReadingTask.id, book_title, current_page);
+      await apiSaveReading(currentReadingTask.id, book_title, current_page, total_pages, notes);
       closeModalLectura();
       await refresh();
     } catch (e) {

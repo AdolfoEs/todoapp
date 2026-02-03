@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mi To-Do App</title>
+    <title>FluxList</title>
     <link rel="stylesheet" href="/style.css" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
@@ -11,11 +11,16 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
   </head>
 
-  <body>
+  <body class="page-app">
+    <div class="login-bg-blobs" aria-hidden="true">
+      <div class="login-blob login-blob--purple"></div>
+      <div class="login-blob login-blob--blue"></div>
+      <div class="login-blob login-blob--pink"></div>
+    </div>
     <div class="app" role="application" aria-labelledby="appTitle">
       <header class="header">
         <div>
-          <h1 id="appTitle" class="title">Mi lista de tareas</h1>
+          <h1 id="appTitle" class="title">FluxList</h1>
           <p class="subtitle">Hola, <span id="userName">Usuario</span></p>
         </div>
         <div class="header-actions">
@@ -71,15 +76,42 @@
         </div>
       </section>
 
-      <section class="panel panel-tasks">
-        <ul id="taskList" class="list" aria-label="Lista de tareas"></ul>
+      <div class="app-main-grid">
+        <section class="panel panel-tasks">
+          <ul id="taskList" class="list" aria-label="Lista de tareas"></ul>
 
-        <div id="emptyState" class="empty is-hidden" aria-live="polite">
-          <div class="empty__icon" aria-hidden="true">✓</div>
-          <div class="empty__title">No hay tareas aún</div>
-          <div class="empty__text">Escribe una tarea arriba y presiona "Agregar".</div>
+          <div id="emptyState" class="empty is-hidden" aria-live="polite">
+            <div class="empty__icon" aria-hidden="true">✓</div>
+            <div class="empty__title">No hay tareas aún</div>
+            <div class="empty__text">Escribe una tarea arriba y presiona "Agregar".</div>
+          </div>
+        </section>
+
+        <div class="app-main-side">
+          <section class="panel day-progress-card" aria-labelledby="dayProgressTitle">
+            <h3 id="dayProgressTitle" class="day-progress-title">Progreso del Día</h3>
+            <div class="day-progress-circle-wrap">
+              <svg class="day-progress-svg" viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="day-progress-bg" cx="60" cy="60" r="54" fill="none" stroke-width="10" />
+                <circle id="dayProgressCircle" class="day-progress-fill" cx="60" cy="60" r="54" fill="none" stroke-width="10" stroke-dasharray="339.3" stroke-dashoffset="339.3" />
+              </svg>
+              <span id="dayProgressPct" class="day-progress-pct">0%</span>
+            </div>
+            <p id="dayProgressText" class="day-progress-text">0 de 0 tareas completadas</p>
+          </section>
+
+          <section class="panel keep-going-card" aria-labelledby="keepGoingTitle">
+            <h3 id="keepGoingTitle" class="keep-going-title"><span class="keep-going-icon" aria-hidden="true">⭐</span> ¡Sigue así!</h3>
+            <p class="keep-going-desc">Tu agenda inteligente se adapta a tus necesidades.</p>
+            <p class="keep-going-desc">Cada tarea tiene herramientas especializadas.</p>
+            <ul class="keep-going-features" aria-label="Funcionalidades">
+              <li><span class="keep-going-feature-icon" aria-hidden="true">📖</span> Seguimiento de lectura</li>
+              <li><span class="keep-going-feature-icon" aria-hidden="true">🍎</span> Control de calorías</li>
+              <li><span class="keep-going-feature-icon" aria-hidden="true">💪</span> Registro de ejercicio</li>
+            </ul>
+          </section>
         </div>
-      </section>
+      </div>
 
       <footer class="footer">
         <span>Frontend: HTML/CSS/JS</span>
@@ -138,24 +170,64 @@
       </div>
     </div>
 
-    <!-- Modal Lectura (libro/leer) -->
+    <!-- Modal Lectura (libro/leer) - Seguimiento de lectura -->
     <div id="modalLectura" class="modal-overlay is-hidden" aria-hidden="true">
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalLecturaTitle">
-        <h2 id="modalLecturaTitle" class="modal-title">📖 Lectura</h2>
+      <div class="modal modal-lectura" role="dialog" aria-modal="true" aria-labelledby="modalLecturaTitle">
+        <div class="modal-lectura-header">
+          <div class="modal-lectura-title-wrap">
+            <span class="modal-lectura-icon" aria-hidden="true">📖</span>
+            <div>
+              <h2 id="modalLecturaTitle" class="modal-title">Seguimiento de lectura</h2>
+              <p id="lecturaBookSubtitle" class="modal-lectura-subtitle">libro</p>
+            </div>
+          </div>
+          <button type="button" class="modal-close" onclick="window.closeModalLectura?.()" aria-label="Cerrar">×</button>
+        </div>
         <div class="modal-lectura-form">
+          <div class="modal-lectura-progress-card">
+            <div class="modal-lectura-progress-head">
+              <span class="modal-lectura-progress-title">📈 Progreso de lectura</span>
+              <span id="lecturaProgressPct" class="modal-lectura-progress-pct">0%</span>
+            </div>
+            <div class="modal-lectura-progress-bar-wrap">
+              <div id="lecturaProgressBar" class="modal-lectura-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="modal-lectura-progress-stats">
+              <div class="modal-lectura-stat">
+                <span class="modal-lectura-stat-icon">📄</span>
+                <span class="modal-lectura-stat-label">Página actual</span>
+                <span id="lecturaCurrentPageDisplay" class="modal-lectura-stat-value">—</span>
+              </div>
+              <div class="modal-lectura-stat">
+                <span class="modal-lectura-stat-icon">🎯</span>
+                <span class="modal-lectura-stat-label">Páginas restantes</span>
+                <span id="lecturaRemainingDisplay" class="modal-lectura-stat-value">—</span>
+              </div>
+            </div>
+          </div>
           <div class="field">
             <label class="label" for="lecturaBookTitle">Título del libro</label>
             <input id="lecturaBookTitle" class="input" type="text" placeholder="Ej: Cien años de soledad" autocomplete="off" />
           </div>
+          <div class="modal-lectura-row">
+            <div class="field">
+              <label class="label" for="lecturaTotalPages">Total de páginas</label>
+              <input id="lecturaTotalPages" class="input" type="number" min="1" placeholder="Ej: 320" />
+            </div>
+            <div class="field">
+              <label class="label" for="lecturaCurrentPage">Página actual</label>
+              <input id="lecturaCurrentPage" class="input" type="number" min="0" placeholder="Ej: 32" />
+            </div>
+          </div>
           <div class="field">
-            <label class="label" for="lecturaCurrentPage">Página actual</label>
-            <input id="lecturaCurrentPage" class="input" type="number" min="0" placeholder="Ej: 42" />
+            <label class="label" for="lecturaNotes">Notas de lectura (opcional)</label>
+            <textarea id="lecturaNotes" class="input modal-lectura-notes" rows="4" placeholder="Escribe tus reflexiones o notas importantes..."></textarea>
           </div>
           <div class="modal-lectura-actions">
+            <button type="button" id="lecturaCancelBtn" class="btn">Cancelar</button>
             <button type="button" id="lecturaSaveBtn" class="btn btn-primary">Guardar</button>
           </div>
         </div>
-        <button type="button" class="modal-close" onclick="window.closeModalLectura?.()" aria-label="Cerrar">×</button>
       </div>
     </div>
 

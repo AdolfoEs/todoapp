@@ -1,9 +1,12 @@
+require('dotenv').config();
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -193,6 +196,16 @@ db.serialize(() => {
     )
   `);
   db.run(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES usuarios(id)
+    )
+  `);
+  db.run(`
     CREATE TABLE IF NOT EXISTS meal_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       task_id INTEGER NOT NULL,
@@ -245,6 +258,11 @@ db.serialize(() => {
       FOREIGN KEY (user_id) REFERENCES usuarios(id)
     )
   `);
+  db.all('PRAGMA table_info(reading_progress)', [], (err, cols) => {
+    const names = (cols || []).map(c => c.name);
+    if (!names.includes('total_pages')) db.run('ALTER TABLE reading_progress ADD COLUMN total_pages INTEGER', () => {});
+    if (!names.includes('notes')) db.run('ALTER TABLE reading_progress ADD COLUMN notes TEXT', () => {});
+  });
   db.run(`
     CREATE TABLE IF NOT EXISTS shopping_list_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -448,6 +466,134 @@ app.get('/verify', authenticateToken, (req, res) => {
   res.json({ valid: true, user: req.user });
 });
 
+// ============ RECUPERAR CONTRASEÑA ============
+function getMailTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) return null;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass }
+  });
+}
+
+app.post('/forgot-password', (req, res) => {
+  const email = (req.body && req.body.email) ? String(req.body.email).trim().toLowerCase() : '';
+  const genericMessage = 'Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña.';
+
+  if (!email) {
+    return res.status(400).json({ error: 'El correo es requerido.', message: genericMessage });
+  }
+
+  db.get('SELECT id, nombre FROM usuarios WHERE LOWER(TRIM(correo)) = ?', [email], (err, user) => {
+    if (err) {
+      console.error('Error buscando usuario por correo:', err);
+      return res.status(200).json({ message: genericMessage });
+    }
+    if (!user) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+    const createdAt = now.toISOString();
+    const baseUrl = (process.env.BASE_URL || '').replace(/\/$/, '');
+    const resetLink = baseUrl ? `${baseUrl}/reset-password.html?token=${token}` : `${req.protocol}://${req.get('host')}/reset-password.html?token=${token}`;
+
+    db.run(
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)',
+      [user.id, token, expiresAt, createdAt],
+      function (insertErr) {
+        if (insertErr) {
+          console.error('Error guardando token de reseteo:', insertErr);
+          return res.status(200).json({ message: genericMessage });
+        }
+
+        const transporter = getMailTransporter();
+        if (!transporter) {
+          console.warn('SMTP no configurado (BASE_URL, SMTP_*). No se envía correo.');
+          return res.status(200).json({ message: genericMessage });
+        }
+
+        console.log('Enviando correo de recuperación a:', email);
+        const mailOptions = {
+          from: process.env.SMTP_USER || 'noreply@fluxlist.app',
+          to: email,
+          subject: 'Restablece tu contraseña - FluxList',
+          text: `Hola,\n\nRecibimos una solicitud para restablecer la contraseña de tu cuenta FluxList.\n\nHaz clic en el siguiente enlace (válido 1 hora):\n${resetLink}\n\nSi no solicitaste esto, ignora este correo.\n\n— FluxList`,
+          html: `<p>Hola,</p><p>Recibimos una solicitud para restablecer la contraseña de tu cuenta FluxList.</p><p><a href="${resetLink}">Restablecer contraseña</a></p><p>Si el enlace no funciona, copia y pega en el navegador:</p><p>${resetLink}</p><p>Válido 1 hora. Si no solicitaste esto, ignora este correo.</p><p>— FluxList</p>`
+        };
+
+        transporter.sendMail(mailOptions, (mailErr) => {
+          if (mailErr) {
+            console.error('Error enviando correo:', mailErr.message || mailErr);
+          } else {
+            console.log('Correo de recuperación enviado correctamente a:', email);
+          }
+          res.status(200).json({ message: genericMessage });
+        });
+      }
+    );
+  });
+});
+
+app.get('/reset-password/validate', (req, res) => {
+  const token = (req.query && req.query.token) ? String(req.query.token).trim() : '';
+  if (!token) return res.status(400).json({ valid: false });
+
+  db.get(
+    'SELECT id FROM password_reset_tokens WHERE token = ? AND expires_at > datetime(\'now\')',
+    [token],
+    (err, row) => {
+      if (err) return res.status(500).json({ valid: false });
+      res.json({ valid: !!row });
+    }
+  );
+});
+
+app.post('/reset-password', async (req, res) => {
+  const { token, newPassword, confirmPassword } = req.body || {};
+  const tokenStr = token ? String(token).trim() : '';
+  const newPass = newPassword ? String(newPassword) : '';
+  const confirmPass = confirmPassword ? String(confirmPassword) : '';
+
+  if (!tokenStr) {
+    return res.status(400).json({ error: 'Token requerido.' });
+  }
+  if (newPass !== confirmPass) {
+    return res.status(400).json({ error: 'Las contraseñas no coinciden.' });
+  }
+  const passwordErrors = validatePassword(newPass);
+  if (passwordErrors.length > 0) {
+    return res.status(400).json({ error: 'Contraseña no cumple los requisitos.', details: passwordErrors });
+  }
+
+  db.get(
+    'SELECT id, user_id FROM password_reset_tokens WHERE token = ? AND expires_at > datetime(\'now\')',
+    [tokenStr],
+    async (err, row) => {
+      if (err) return res.status(500).json({ error: 'Error del servidor.' });
+      if (!row) return res.status(400).json({ error: 'Enlace inválido o expirado.' });
+
+      try {
+        const hashedPassword = await bcrypt.hash(newPass, 10);
+        db.run('UPDATE usuarios SET password = ? WHERE id = ?', [hashedPassword, row.user_id], (updateErr) => {
+          if (updateErr) return res.status(500).json({ error: 'Error al actualizar contraseña.' });
+          db.run('DELETE FROM password_reset_tokens WHERE id = ?', [row.id], () => {});
+          res.status(200).json({ message: 'Contraseña actualizada. Ya puedes iniciar sesión.' });
+        });
+      } catch (e) {
+        res.status(500).json({ error: 'Error del servidor.' });
+      }
+    }
+  );
+});
+
 // Endpoint temporal de debug (eliminar en producción)
 app.get('/debug/users', (req, res) => {
   db.all('SELECT id, nombre, correo, created_at FROM usuarios', [], (err, rows) => {
@@ -463,6 +609,7 @@ app.get('/debug/users', (req, res) => {
 app.get('/tasks', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const dateParam = (req.query.date || '').trim();
+  if (process.env.DEBUG_TASKS) console.log('[tasks] user_id=', userId, 'date=', dateParam || '(all)');
 
   if (dateParam) {
     // Vista por día: tareas de esa fecha con meal_logs, reading_progress, gym_progress
@@ -829,27 +976,36 @@ app.get('/api/reading/progress/:taskId', authenticateToken, (req, res) => {
   const taskId = Number(req.params.taskId);
   if (!taskId) return res.status(400).json({ error: 'task_id inválido' });
   db.get(
-    'SELECT book_title, current_page FROM reading_progress WHERE task_id = ? AND user_id = ?',
+    'SELECT book_title, current_page, total_pages, notes FROM reading_progress WHERE task_id = ? AND user_id = ?',
     [taskId, userId],
     (err, row) => {
       if (err) return res.status(500).json({ error: 'DB error', details: err.message });
-      if (!row) return res.json({ book_title: '', current_page: null });
-      res.json({ book_title: row.book_title || '', current_page: row.current_page });
+      if (!row) return res.json({ book_title: '', current_page: null, total_pages: null, notes: '' });
+      res.json({
+        book_title: row.book_title || '',
+        current_page: row.current_page,
+        total_pages: row.total_pages,
+        notes: row.notes || ''
+      });
     }
   );
 });
 
 app.post('/api/reading/save', authenticateToken, (req, res) => {
   const userId = req.user.id;
-  const { task_id, book_title, current_page } = req.body || {};
+  const { task_id, book_title, current_page, total_pages, notes } = req.body || {};
   const taskId = Number(task_id);
   if (!taskId) return res.status(400).json({ error: 'task_id requerido' });
   const now = new Date().toISOString();
+  const bookTitleVal = (book_title || '').trim() || null;
+  const currentPageVal = current_page != null && current_page !== '' ? Number(current_page) : null;
+  const totalPagesVal = total_pages != null && total_pages !== '' ? Number(total_pages) : null;
+  const notesVal = (notes || '').trim() || null;
   db.run(
-    `INSERT INTO reading_progress (task_id, user_id, book_title, current_page, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(task_id, user_id) DO UPDATE SET book_title = excluded.book_title, current_page = excluded.current_page, updated_at = excluded.updated_at`,
-    [taskId, userId, (book_title || '').trim() || null, current_page != null && current_page !== '' ? Number(current_page) : null, now, now],
+    `INSERT INTO reading_progress (task_id, user_id, book_title, current_page, total_pages, notes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(task_id, user_id) DO UPDATE SET book_title = excluded.book_title, current_page = excluded.current_page, total_pages = excluded.total_pages, notes = excluded.notes, updated_at = excluded.updated_at`,
+    [taskId, userId, bookTitleVal, currentPageVal, totalPagesVal, notesVal, now, now],
     function (err) {
       if (err) return res.status(500).json({ error: 'DB error', details: err.message });
       res.status(201).json({ created_at: now, updated_at: now });
