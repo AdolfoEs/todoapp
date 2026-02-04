@@ -294,7 +294,20 @@ db.serialize(() => {
     }
     if (n > 0) {
       console.log('Foods: tabla ya tiene', n, 'alimentos');
-      startHttpServer();
+      const extra = [
+        ['nueces', 654, 15, 14, 65],
+        ['pepino', 15, 0.7, 3.6, 0.1]
+      ];
+      const runOne = (i, cb) => {
+        if (i >= extra.length) return cb();
+        const [name, cal, p, c, f] = extra[i];
+        db.run(`INSERT INTO foods (name, calories_per_100, protein_per_100, carbs_per_100, fat_per_100)
+          SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM foods WHERE LOWER(TRIM(name)) = LOWER(?))`, [name, cal, p, c, f, name], (err) => {
+          if (err) console.error('Insert', name, err);
+          runOne(i + 1, cb);
+        });
+      };
+      runOne(0, () => startHttpServer());
       return;
     }
     const seed = [
@@ -317,7 +330,9 @@ db.serialize(() => {
       ['salmon', 208, 20, 0, 13],
       ['avena', 389, 17, 66, 6.9],
       ['yogur', 59, 10, 3.6, 0.4],
-      ['arroz blanco', 130, 2.7, 28, 0.3]
+      ['arroz blanco', 130, 2.7, 28, 0.3],
+      ['nueces', 654, 15, 14, 65],
+      ['pepino', 15, 0.7, 3.6, 0.1]
     ];
     const stmt = db.prepare('INSERT INTO foods (name, calories_per_100, protein_per_100, carbs_per_100, fat_per_100) VALUES (?, ?, ?, ?, ?)');
     seed.forEach(([name, cal, p, c, f]) => stmt.run(name, cal, p, c, f));
@@ -836,7 +851,9 @@ const IN_MEMORY_FOODS = [
   { name: 'salmon', calories_per_100: 208, protein_per_100: 20, carbs_per_100: 0, fat_per_100: 13 },
   { name: 'avena', calories_per_100: 389, protein_per_100: 17, carbs_per_100: 66, fat_per_100: 6.9 },
   { name: 'yogur', calories_per_100: 59, protein_per_100: 10, carbs_per_100: 3.6, fat_per_100: 0.4 },
-  { name: 'palta', calories_per_100: 160, protein_per_100: 2, carbs_per_100: 8.5, fat_per_100: 14.7 }
+  { name: 'palta', calories_per_100: 160, protein_per_100: 2, carbs_per_100: 8.5, fat_per_100: 14.7 },
+  { name: 'nueces', calories_per_100: 654, protein_per_100: 15, carbs_per_100: 14, fat_per_100: 65 },
+  { name: 'pepino', calories_per_100: 15, protein_per_100: 0.7, carbs_per_100: 3.6, fat_per_100: 0.1 }
 ];
 
 function findInMemory(term) {
@@ -966,6 +983,52 @@ app.post('/api/nutrition/save', authenticateToken, (req, res) => {
     function (err) {
       if (err) return res.status(500).json({ error: 'DB error', details: err.message });
       res.status(201).json({ id: this.lastID, created_at: createdAt });
+    }
+  );
+});
+
+// Último meal_log por task_id + meal_type (para editar / agregar alimentos)
+app.get('/api/nutrition/log', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const taskId = Number(req.query.task_id);
+  const mealType = (req.query.meal_type || '').trim();
+  if (!taskId || !mealType) {
+    return res.status(400).json({ error: 'task_id y meal_type son requeridos' });
+  }
+  db.get(
+    `SELECT id, foods_text, calories, protein, carbs, fat FROM meal_logs
+     WHERE task_id = ? AND user_id = ? AND meal_type = ?
+     ORDER BY created_at DESC LIMIT 1`,
+    [taskId, userId, mealType],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      if (!row) return res.status(404).json({});
+      res.json({
+        id: row.id,
+        foods_text: row.foods_text || '',
+        calories: row.calories ?? 0,
+        protein: row.protein ?? 0,
+        carbs: row.carbs ?? 0,
+        fat: row.fat ?? 0
+      });
+    }
+  );
+});
+
+// Actualizar un meal_log existente (editar / agregar alimentos)
+app.put('/api/nutrition/log/:id', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const logId = Number(req.params.id);
+  const { foods_text, calories, protein, carbs, fat } = req.body || {};
+  if (!logId) return res.status(400).json({ error: 'id inválido' });
+  db.run(
+    `UPDATE meal_logs SET foods_text = ?, calories = ?, protein = ?, carbs = ?, fat = ?
+     WHERE id = ? AND user_id = ?`,
+    [foods_text ?? null, calories ?? null, protein ?? null, carbs ?? null, fat ?? null, logId, userId],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'DB error', details: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: 'Log no encontrado' });
+      res.json({ ok: true });
     }
   );
 });

@@ -181,11 +181,6 @@ function renderTaskItem(task) {
   check.setAttribute("data-checked", String(isDone));
   check.setAttribute("aria-label", isDone ? "Marcar como pendiente" : "Marcar como completada");
 
-  const checkMark = document.createElement("span");
-  checkMark.className = "checkmark";
-  checkMark.textContent = "✓";
-  check.appendChild(checkMark);
-
   check.addEventListener("click", async () => {
     try {
       await apiSetCompleted(task.id, !isDone);
@@ -230,7 +225,14 @@ function renderTaskItem(task) {
     const f = task.last_fat != null ? Math.round(Number(task.last_fat)) : 0;
     const nut = document.createElement('div');
     nut.className = 'task-nutrition';
-    nut.textContent = `${meal} · Calorías: ${cal} · Proteínas: ${p} · Carbohidratos: ${c} · Grasas: ${f}`;
+    const mealSpan = document.createElement('span');
+    mealSpan.className = 'task-nutrition-meal';
+    mealSpan.textContent = meal;
+    nut.appendChild(mealSpan);
+    const macrosSpan = document.createElement('span');
+    macrosSpan.className = 'task-nutrition-macros';
+    macrosSpan.textContent = ` · Calorías: ${cal} · Proteínas: ${p} · Carbohidratos: ${c} · Grasas: ${f}`;
+    nut.appendChild(macrosSpan);
     textWrap.appendChild(nut);
   }
 
@@ -570,7 +572,11 @@ const FOODS_LOCAL = {
   rice: { cal: 130, p: 2.7, c: 28, f: 0.3 },
   bread: { cal: 265, p: 9, c: 49, f: 3.2 },
   palta: { cal: 160, p: 2, c: 8.5, f: 14.7 },
-  avocado: { cal: 160, p: 2, c: 8.5, f: 14.7 }
+  avocado: { cal: 160, p: 2, c: 8.5, f: 14.7 },
+  nuez: { cal: 654, p: 15, c: 14, f: 65 },
+  nueces: { cal: 654, p: 15, c: 14, f: 65 },
+  pepino: { cal: 15, p: 0.7, c: 3.6, f: 0.1 },
+  cucumber: { cal: 15, p: 0.7, c: 3.6, f: 0.1 }
 };
 
 function calcNutritionLocal(text) {
@@ -648,9 +654,29 @@ async function apiSaveNutrition(payload) {
   return res.json();
 }
 
+async function apiGetNutritionLog(taskId, mealType) {
+  const base = API_URL.replace(/\/tasks$/, '');
+  const res = await fetch(`${base}/api/nutrition/log?task_id=${encodeURIComponent(taskId)}&meal_type=${encodeURIComponent(mealType)}`, { headers: getAuthHeaders() });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Error al cargar');
+  return res.json();
+}
+
+async function apiUpdateNutritionLog(logId, payload) {
+  const base = API_URL.replace(/\/tasks$/, '');
+  const res = await fetch(`${base}/api/nutrition/log/${logId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error('Error al actualizar');
+  return res.json();
+}
+
 // --- Modales calorías ---
 let currentNutritionTask = null;
 let currentMealType = null;
+let currentNutritionLogId = null;
 
 const modalMealType = document.getElementById('modalMealType');
 const modalLectura = document.getElementById('modalLectura');
@@ -676,6 +702,13 @@ const gymTimerStart = document.getElementById('gymTimerStart');
 const gymTimerPause = document.getElementById('gymTimerPause');
 const gymTimerReset = document.getElementById('gymTimerReset');
 const gymSaveBtn = document.getElementById('gymSaveBtn');
+const gymOpenStopwatchBtn = document.getElementById('gymOpenStopwatchBtn');
+const modalStopwatch = document.getElementById('modalStopwatch');
+const stopwatchDisplay = document.getElementById('stopwatchDisplay');
+const stopwatchStartBtn = document.getElementById('stopwatchStartBtn');
+const stopwatchPauseBtn = document.getElementById('stopwatchPauseBtn');
+const stopwatchResetBtn = document.getElementById('stopwatchResetBtn');
+const stopwatchCloseBtn = document.getElementById('stopwatchCloseBtn');
 const modalNutrition = document.getElementById('modalNutrition');
 const nutritionIngredients = document.getElementById('nutritionIngredients');
 const nutritionResult = document.getElementById('nutritionResult');
@@ -711,12 +744,28 @@ let lastRenderedDayTasks = [];
 
 let calendarCurrentYear = new Date().getFullYear();
 let calendarCurrentMonth = new Date().getMonth();
+let calendarDatesWithTasks = new Set();
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-function openModalCalendar() {
+async function fetchCalendarDatesWithTasks() {
+  try {
+    const res = await fetch(API_URL, { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const list = await res.json();
+    const set = new Set();
+    (list || []).forEach((t) => {
+      const dateStr = t.date || (t.created_at ? String(t.created_at).slice(0, 10) : null);
+      if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) set.add(dateStr);
+    });
+    calendarDatesWithTasks = set;
+  } catch (e) { /* ignore */ }
+}
+
+async function openModalCalendar() {
   calendarCurrentYear = new Date().getFullYear();
   calendarCurrentMonth = new Date().getMonth();
+  await fetchCalendarDatesWithTasks();
   renderCalendarGrid();
   if (modalCalendar) {
     modalCalendar.classList.remove('is-hidden');
@@ -748,7 +797,8 @@ function renderCalendarGrid() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
     const isToday = dateStr === todayStr;
-    html += `<button type="button" class="calendar-day ${isToday ? 'calendar-day-today' : ''}" data-date="${dateStr}" aria-label="Ver tareas del ${d}">${d}</button>`;
+    const hasTasks = calendarDatesWithTasks.has(dateStr);
+    html += `<button type="button" class="calendar-day ${isToday ? 'calendar-day-today' : ''} ${hasTasks ? 'calendar-day-has-tasks' : ''}" data-date="${dateStr}" aria-label="Ver tareas del ${d}">${d}</button>`;
   }
   html += '</div>';
   calendarGrid.innerHTML = html;
@@ -1021,68 +1071,66 @@ async function apiGetGymProgress(taskId) {
   return res.json();
 }
 
+const GYM_SOUNDS = {
+  countdown: '/sounds/beep-countdown.mp3.mp3',
+  seriesStart: '/sounds/beep-series-start.mp3.mp3',
+  seriesEnd: '/sounds/beep-series-end.mp3.mp3'
+};
+
 let gymAudioContext = null;
-function getGymAudioContext() {
-  if (!gymAudioContext) gymAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  return gymAudioContext;
-}
-function playGymBeep() {
+let gymSoundBuffers = {};
+
+async function initGymSounds() {
+  if (gymSoundBuffers.countdown) return;
   try {
-    const ctx = getGymAudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 800;
-    osc.type = 'sine';
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.1);
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!gymAudioContext) gymAudioContext = new Ctx();
+    if (gymAudioContext.state === 'suspended') await gymAudioContext.resume();
+    for (const key of Object.keys(GYM_SOUNDS)) {
+      const res = await fetch(GYM_SOUNDS[key]);
+      if (!res.ok) continue;
+      const arr = await res.arrayBuffer();
+      const buf = await gymAudioContext.decodeAudioData(arr);
+      gymSoundBuffers[key] = buf;
+    }
   } catch (e) { /* ignore */ }
+}
+
+function playGymSound(soundKey) {
+  try {
+    const buf = gymSoundBuffers[soundKey];
+    if (gymAudioContext && buf) {
+      const src = gymAudioContext.createBufferSource();
+      src.buffer = buf;
+      const gain = gymAudioContext.createGain();
+      gain.gain.value = 0.7;
+      src.connect(gain);
+      gain.connect(gymAudioContext.destination);
+      src.start(0);
+      return;
+    }
+    const audio = new Audio(GYM_SOUNDS[soundKey]);
+    audio.volume = 0.7;
+    audio.play().catch(() => {});
+  } catch (e) { /* ignore */ }
+}
+
+function playGymBeep() {
+  playGymSound('countdown');
 }
 
 function playGymWhistle() {
-  try {
-    const ctx = getGymAudioContext();
-    const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1100, t);
-    osc.frequency.linearRampToValueAtTime(2200, t + 0.45);
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.22, t + 0.05);
-    gain.gain.setValueAtTime(0.22, t + 0.35);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
-    osc.start(t);
-    osc.stop(t + 0.5);
-  } catch (e) { /* ignore */ }
+  playGymSound('seriesStart');
 }
 
 function playGymStartSeries() {
-  playGymWhistle();
+  playGymSound('seriesStart');
 }
 
 function playGymDoubleBeep() {
-  try {
-    const ctx = getGymAudioContext();
-    [0, 0.18].forEach((delay) => {
-      const t = ctx.currentTime + delay;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 800;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.15, t);
-      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
-      osc.start(t);
-      osc.stop(t + 0.08);
-    });
-  } catch (e) { /* ignore */ }
+  playGymSound('seriesEnd');
+  setTimeout(() => playGymSound('seriesEnd'), 180);
 }
 
 let gymTimerIntervalId = null;
@@ -1258,6 +1306,107 @@ function closeModalGym() {
   currentGymTask = null;
 }
 
+// --- Cronómetro (independiente del Timer por series) ---
+let stopwatchElapsedMs = 0;
+let stopwatchStartTime = null;
+let stopwatchIntervalId = null;
+
+function formatStopwatch(ms) {
+  const totalCs = Math.floor(ms / 10);
+  const cs = totalCs % 100;
+  const totalSec = Math.floor(totalCs / 100);
+  const sec = totalSec % 60;
+  const totalMin = Math.floor(totalSec / 60);
+  const min = totalMin % 60;
+  const hours = Math.floor(totalMin / 60);
+  return `${String(hours).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+}
+
+function updateStopwatchDisplay() {
+  if (!stopwatchDisplay) return;
+  let ms = stopwatchElapsedMs;
+  if (stopwatchStartTime !== null) {
+    ms += (Date.now() - stopwatchStartTime);
+  }
+  stopwatchDisplay.textContent = formatStopwatch(ms);
+}
+
+function stopwatchTick() {
+  updateStopwatchDisplay();
+}
+
+function stopwatchStart() {
+  if (stopwatchStartTime !== null) return;
+  stopwatchStartTime = Date.now();
+  stopwatchIntervalId = setInterval(stopwatchTick, 10);
+  if (stopwatchStartBtn) {
+    stopwatchStartBtn.classList.add('is-hidden');
+    stopwatchStartBtn.disabled = true;
+  }
+  if (stopwatchPauseBtn) {
+    stopwatchPauseBtn.classList.remove('is-hidden');
+    stopwatchPauseBtn.textContent = 'Pausar';
+    stopwatchPauseBtn.disabled = false;
+  }
+}
+
+function stopwatchPause() {
+  if (stopwatchStartTime === null) return;
+  stopwatchElapsedMs += (Date.now() - stopwatchStartTime);
+  stopwatchStartTime = null;
+  if (stopwatchIntervalId) {
+    clearInterval(stopwatchIntervalId);
+    stopwatchIntervalId = null;
+  }
+  updateStopwatchDisplay();
+  if (stopwatchStartBtn) {
+    stopwatchStartBtn.classList.remove('is-hidden');
+    stopwatchStartBtn.textContent = 'Reanudar';
+    stopwatchStartBtn.disabled = false;
+  }
+  if (stopwatchPauseBtn) {
+    stopwatchPauseBtn.classList.add('is-hidden');
+    stopwatchPauseBtn.disabled = true;
+  }
+}
+
+function stopwatchReset() {
+  if (stopwatchIntervalId) {
+    clearInterval(stopwatchIntervalId);
+    stopwatchIntervalId = null;
+  }
+  stopwatchStartTime = null;
+  stopwatchElapsedMs = 0;
+  updateStopwatchDisplay();
+  if (stopwatchStartBtn) {
+    stopwatchStartBtn.classList.remove('is-hidden');
+    stopwatchStartBtn.textContent = 'Iniciar';
+    stopwatchStartBtn.disabled = false;
+  }
+  if (stopwatchPauseBtn) {
+    stopwatchPauseBtn.classList.add('is-hidden');
+    stopwatchPauseBtn.textContent = 'Pausar';
+    stopwatchPauseBtn.disabled = false;
+  }
+}
+
+function openStopwatchModal() {
+  stopwatchReset();
+  if (modalStopwatch) {
+    modalStopwatch.classList.remove('is-hidden');
+    modalStopwatch.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeStopwatchModal() {
+  stopwatchPause();
+  stopwatchReset();
+  if (modalStopwatch) {
+    modalStopwatch.classList.add('is-hidden');
+    modalStopwatch.setAttribute('aria-hidden', 'true');
+  }
+}
+
 function openModalMealType(task) {
   currentNutritionTask = task;
   currentMealType = null;
@@ -1276,9 +1425,10 @@ function closeModalMealType() {
   currentMealType = null;
 }
 
-function openModalNutrition(task, mealType) {
+async function openModalNutrition(task, mealType) {
   currentNutritionTask = task;
   currentMealType = mealType;
+  currentNutritionLogId = null;
   lastCalculatedNutrition = null;
   if (nutritionIngredients) nutritionIngredients.value = '';
   if (nutritionResult) {
@@ -1294,6 +1444,30 @@ function openModalNutrition(task, mealType) {
     modalNutrition.classList.remove('is-hidden');
     modalNutrition.setAttribute('aria-hidden', 'false');
   }
+  if (task && task.id && mealType) {
+    try {
+      const log = await apiGetNutritionLog(task.id, mealType);
+      if (log && (log.foods_text != null || (log.calories != null && log.calories > 0))) {
+        currentNutritionLogId = log.id;
+        if (nutritionIngredients) nutritionIngredients.value = log.foods_text || '';
+        lastCalculatedNutrition = {
+          data: { calories: log.calories ?? 0, protein: log.protein ?? 0, carbs: log.carbs ?? 0, fat: log.fat ?? 0 },
+          text: log.foods_text || ''
+        };
+        if (nutritionResult) {
+          nutritionResult.innerHTML = `
+            <strong>Calorías:</strong> ${log.calories ?? 0} kcal &nbsp;
+            <strong>Proteína:</strong> ${log.protein ?? 0} g &nbsp;
+            <strong>Carbos:</strong> ${log.carbs ?? 0} g &nbsp;
+            <strong>Grasas:</strong> ${log.fat ?? 0} g
+          `;
+          nutritionResult.classList.remove('is-hidden');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
 }
 
 function closeModalNutrition() {
@@ -1303,6 +1477,7 @@ function closeModalNutrition() {
   }
   currentNutritionTask = null;
   currentMealType = null;
+  currentNutritionLogId = null;
 }
 
 async function loadShoppingItems(taskId) {
@@ -1456,7 +1631,7 @@ if (lecturaSaveBtn && lecturaBookTitle && lecturaCurrentPage) {
 }
 
 if (gymTimerStart) {
-  gymTimerStart.addEventListener('click', () => {
+  gymTimerStart.addEventListener('click', async () => {
     const total = gymSeries?.value ? parseInt(gymSeries.value, 10) : 0;
     const perSet = gymSecondsPerSet?.value ? parseInt(gymSecondsPerSet.value, 10) : 0;
     const rest = gymRestSecondsInput?.value !== '' && gymRestSecondsInput?.value != null ? parseInt(gymRestSecondsInput.value, 10) : 0;
@@ -1465,13 +1640,13 @@ if (gymTimerStart) {
       return;
     }
     if (gymTimerState === 'idle') {
+      await initGymSounds();
       gymTimerTotalSets = total;
       gymTimerSecondsPerSet = perSet;
       gymTimerRestSeconds = rest >= 0 ? rest : 0;
       gymTimerCurrentSet = 1;
       gymTimerState = 'prep';
       gymTimerRemaining = 5;
-      getGymAudioContext().resume?.();
       if (gymTimerDisplay) gymTimerDisplay.classList.remove('is-hidden');
       if (gymTimerStart) gymTimerStart.classList.add('is-hidden');
       if (gymTimerPause) {
@@ -1489,6 +1664,12 @@ if (gymTimerReset) {
     gymTimerStop();
   });
 }
+
+if (gymOpenStopwatchBtn) gymOpenStopwatchBtn.addEventListener('click', openStopwatchModal);
+if (stopwatchCloseBtn) stopwatchCloseBtn.addEventListener('click', closeStopwatchModal);
+if (stopwatchStartBtn) stopwatchStartBtn.addEventListener('click', stopwatchStart);
+if (stopwatchPauseBtn) stopwatchPauseBtn.addEventListener('click', stopwatchPause);
+if (stopwatchResetBtn) stopwatchResetBtn.addEventListener('click', stopwatchReset);
 
 if (gymSaveBtn && gymRoutine && gymDuration) {
   gymSaveBtn.addEventListener('click', async () => {
@@ -1569,9 +1750,7 @@ if (nutritionSaveBtnFixed) {
     }
     const payload = lastCalculatedNutrition
       ? {
-          task_id: currentNutritionTask.id,
-          meal_type: currentMealType,
-          foods_text: lastCalculatedNutrition.text,
+          foods_text: (nutritionIngredients && nutritionIngredients.value.trim()) || lastCalculatedNutrition.text,
           calories: lastCalculatedNutrition.data.calories,
           protein: lastCalculatedNutrition.data.protein,
           carbs: lastCalculatedNutrition.data.carbs,
@@ -1584,7 +1763,15 @@ if (nutritionSaveBtnFixed) {
     }
     nutritionSaveBtnFixed.disabled = true;
     try {
-      await apiSaveNutrition(payload);
+      if (currentNutritionLogId) {
+        await apiUpdateNutritionLog(currentNutritionLogId, payload);
+      } else {
+        await apiSaveNutrition({
+          task_id: currentNutritionTask.id,
+          meal_type: currentMealType,
+          ...payload
+        });
+      }
       closeModalNutrition();
       await refresh();
       alert('Guardado.');
@@ -1600,6 +1787,7 @@ if (nutritionSaveBtnFixed) {
 window.closeModalMealType = closeModalMealType;
 window.closeModalLectura = closeModalLectura;
 window.closeModalGym = closeModalGym;
+window.closeStopwatchModal = closeStopwatchModal;
 window.closeModalNutrition = closeModalNutrition;
 window.closeModalShopping = closeModalShopping;
 

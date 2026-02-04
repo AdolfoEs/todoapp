@@ -763,9 +763,17 @@ input[type="time"].input {
 
 .task-nutrition {
   font-size: 12px;
-  color: #8fbc8f;
   margin-top: 2px;
   animation: task-reading-pulse 4s ease-in-out infinite;
+}
+
+.task-nutrition-meal {
+  font-weight: 600;
+  color: #1a472a;
+}
+
+.task-nutrition-macros {
+  color: #c2410c;
 }
 
 /* Línea de lectura: color café claro + palpitar suave (2s desaparecer, 2s aparecer) */
@@ -958,6 +966,9 @@ input[type="time"].input {
   transition: background 0.15s ease;
 }
 .calendar-day:hover {
+  background: rgba(124, 58, 237, 0.14);
+}
+.calendar-day-has-tasks {
   background: rgba(124, 58, 237, 0.14);
 }
 .calendar-day-today {
@@ -1508,7 +1519,14 @@ input[type="time"].input {
 
 .modal-gym-form .field { margin-bottom: 1rem; }
 .modal-gym-form .field:last-of-type { margin-bottom: 0; }
-.modal-gym-actions { margin-top: 1rem; }
+.modal-gym-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.modal-gym-actions .btn-stopwatch { flex: 1 1 auto; min-width: 120px; }
+.modal-gym-actions .btn-primary { flex: 1 1 auto; min-width: 120px; }
 
 .gym-timer-section {
   margin-top: 1.25rem;
@@ -1567,6 +1585,122 @@ input[type="time"].input {
   flex-wrap: wrap;
 }
 .gym-timer-btns .btn { flex: 1 1 auto; }
+
+.btn-stopwatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 18px;
+}
+.btn-stopwatch-icon {
+  font-size: 1.5rem;
+}
+
+/* Modal Cronómetro: ocupa gran parte de la pantalla, forma de cronómetro real */
+.modal-stopwatch-overlay {
+  z-index: 1001;
+  padding: 20px;
+  align-items: center;
+  justify-content: center;
+}
+.modal-stopwatch-overlay.is-hidden { display: none; }
+.stopwatch-screen {
+  width: 100%;
+  max-width: min(92vw, 420px);
+  min-height: min(88vh, 520px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  padding: 24px 20px 28px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+body.page-app .modal-stopwatch-overlay .stopwatch-screen {
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+}
+.stopwatch-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+.stopwatch-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #111827;
+}
+.stopwatch-title {
+  margin: 0 0 20px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+.stopwatch-face {
+  width: min(72vw, 280px);
+  height: min(72vw, 280px);
+  max-width: 280px;
+  max-height: 280px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #374151 0%, #1f2937 50%, #111827 100%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+  border: 8px solid #4b5563;
+  flex-shrink: 0;
+}
+.stopwatch-face-inner {
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  border-radius: 50%;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.06);
+}
+.stopwatch-display {
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+}
+.stopwatch-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  max-width: 320px;
+}
+.stopwatch-controls .stopwatch-btn {
+  min-width: 100px;
+}
+.stopwatch-controls .btn-primary {
+  color: #fff !important;
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+  border-color: #7c3aed;
+}
 
 /* ========== PÁGINA LOGIN FLUXLIST ========== */
 /* Fondo continuo: gradiente fijo + blobs fijos, sin interrupciones de arriba abajo */

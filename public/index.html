@@ -269,9 +269,31 @@
           </div>
           <div class="modal-gym-actions">
             <button type="button" id="gymSaveBtn" class="btn btn-primary">Guardar</button>
+            <button type="button" id="gymOpenStopwatchBtn" class="btn btn-stopwatch" aria-label="Abrir cronómetro">
+              <span class="btn-stopwatch-icon" aria-hidden="true">⏱️</span>
+              <span>Cronómetro</span>
+            </button>
           </div>
         </div>
         <button type="button" class="modal-close" onclick="window.closeModalGym?.()" aria-label="Cerrar">×</button>
+      </div>
+    </div>
+
+    <!-- Modal Cronómetro (pantalla grande, forma de cronómetro) -->
+    <div id="modalStopwatch" class="modal-overlay modal-stopwatch-overlay is-hidden" aria-hidden="true">
+      <div class="stopwatch-screen" role="dialog" aria-modal="true" aria-labelledby="stopwatchTitle">
+        <button type="button" id="stopwatchCloseBtn" class="stopwatch-close" aria-label="Cerrar cronómetro">×</button>
+        <h2 id="stopwatchTitle" class="stopwatch-title">Cronómetro</h2>
+        <div class="stopwatch-face">
+          <div class="stopwatch-face-inner">
+            <span id="stopwatchDisplay" class="stopwatch-display" aria-live="polite">00:00:00.00</span>
+          </div>
+        </div>
+        <div class="stopwatch-controls">
+          <button type="button" id="stopwatchStartBtn" class="btn btn-primary stopwatch-btn">Iniciar</button>
+          <button type="button" id="stopwatchPauseBtn" class="btn btn-ghost stopwatch-btn is-hidden">Pausar</button>
+          <button type="button" id="stopwatchResetBtn" class="btn btn-ghost stopwatch-btn">Reiniciar</button>
+        </div>
       </div>
     </div>
 
