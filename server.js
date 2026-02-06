@@ -379,9 +379,6 @@ function validatePassword(password) {
   if (!/[0-9]/.test(password)) {
     errors.push('Al menos un número');
   }
-  if (!/[!@#$%^&*(),.?":{}|<>_\-]/.test(password)) {
-    errors.push('Al menos un símbolo (!@#$%^&*...)');
-  }
   
   return errors;
 }
