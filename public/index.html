@@ -277,29 +277,36 @@
           <button type="button" id="gymCategoryNext" class="gym-category-next" disabled>Siguiente</button>
         </section>
 
-        <!-- Paso 2: zona fuerza -->
-        <section id="gymStepStrengthZone" class="gym-wizard-step is-hidden" aria-labelledby="gymStrengthTitle">
-          <div class="gym-strength-hero">
-            <span class="gym-strength-hero-icon" aria-hidden="true">🏋️</span>
-            <h2 id="gymStrengthTitle" class="gym-wizard-title">Fuerza 💪</h2>
+        <!-- Paso 2: zona fuerza (carrusel) -->
+        <section id="gymStepStrengthZone" class="gym-wizard-step gym-wizard-step--strengthZone is-hidden" aria-labelledby="gymStrengthTitle">
+          <p class="gym-zone-label">🏋️ Fuerza</p>
+          <h2 id="gymStrengthTitle" class="gym-wizard-title gym-zone-heading">¿Qué grupo muscular quieres entrenar?</h2>
+          <div class="gym-zone-carousel-wrap">
+            <div id="gymZoneCarousel" class="gym-zone-carousel" role="list" aria-label="Grupo muscular">
+              <button type="button" class="gym-zone-card" data-zone="superior" role="listitem" aria-pressed="false">
+                <div class="gym-zone-card-media">
+                  <img src="/icons/gym/tren-superior.png" alt="" width="200" height="240" loading="lazy" />
+                </div>
+                <span class="gym-zone-name">Tren Superior</span>
+                <span class="gym-zone-desc">Pecho, espalda, hombros, bíceps, tríceps y abdomen.</span>
+              </button>
+              <button type="button" class="gym-zone-card" data-zone="inferior" role="listitem" aria-pressed="false">
+                <div class="gym-zone-card-media">
+                  <img src="/icons/gym/tren-inferior.png" alt="" width="200" height="240" loading="lazy" />
+                </div>
+                <span class="gym-zone-name">Tren Inferior</span>
+                <span class="gym-zone-desc">Cuádriceps, femorales, glúteos y pantorrillas.</span>
+              </button>
+              <button type="button" class="gym-zone-card" data-zone="fullbody" role="listitem" aria-pressed="false">
+                <div class="gym-zone-card-media">
+                  <img src="/icons/gym/full-body.png" alt="" width="200" height="240" loading="lazy" />
+                </div>
+                <span class="gym-zone-name">Full Body</span>
+                <span class="gym-zone-desc">Entrenamiento completo de todo el cuerpo.</span>
+              </button>
+            </div>
           </div>
-          <div class="gym-zone-list" role="list">
-            <button type="button" class="gym-zone-card" data-zone="superior" role="listitem">
-              <span class="gym-zone-icon" aria-hidden="true">💥</span>
-              <span class="gym-zone-name">Tren Superior (Torso)</span>
-              <span class="gym-zone-desc">Pecho, espalda, hombros, bíceps y tríceps</span>
-            </button>
-            <button type="button" class="gym-zone-card" data-zone="inferior" role="listitem">
-              <span class="gym-zone-icon" aria-hidden="true">🍗</span>
-              <span class="gym-zone-name">Tren Inferior (Piernas)</span>
-              <span class="gym-zone-desc">Cuádriceps, isquios, glúteos y pantorrillas</span>
-            </button>
-            <button type="button" class="gym-zone-card" data-zone="fullbody" role="listitem">
-              <span class="gym-zone-icon" aria-hidden="true">🦍</span>
-              <span class="gym-zone-name">Full Body (Cuerpo Completo)</span>
-              <span class="gym-zone-desc">Todo el cuerpo en la misma sesión</span>
-            </button>
-          </div>
+          <button type="button" id="gymZoneNext" class="gym-zone-next" disabled>Siguiente</button>
         </section>
 
         <!-- Paso 3: sesión tren superior -->

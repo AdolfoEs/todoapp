@@ -1328,6 +1328,7 @@ const gymWizardBack = document.getElementById('gymWizardBack');
 const gymCategoryTitle = document.getElementById('gymCategoryTitle');
 const gymCategoryCarousel = document.getElementById('gymCategoryCarousel');
 const gymCategoryNext = document.getElementById('gymCategoryNext');
+const gymZoneNext = document.getElementById('gymZoneNext');
 const gymFilterMuscle = document.getElementById('gymFilterMuscle');
 const gymFilterEquipment = document.getElementById('gymFilterEquipment');
 const gymExerciseList = document.getElementById('gymExerciseList');
@@ -1343,6 +1344,7 @@ function resetGymWizardState() {
     gymWizardState.exercises[ex.id] = { series: '', reps: '', weight: '' };
   });
   updateGymCategorySelectionUI();
+  updateGymZoneSelectionUI();
 }
 
 function getGymUserFirstName() {
@@ -1370,6 +1372,9 @@ function showGymWizardStep(step) {
   }
   if (step === 'category') {
     updateGymCategorySelectionUI();
+  }
+  if (step === 'strengthZone') {
+    updateGymZoneSelectionUI();
   }
 }
 
@@ -1402,6 +1407,36 @@ function advanceFromGymCategoryStep() {
     return;
   }
   openGymComingSoon(`${GYM_CATEGORY_LABELS[category] || 'Esta categoría'} estará disponible en una próxima versión.`);
+}
+
+function updateGymZoneSelectionUI() {
+  document.querySelectorAll('#gymStepStrengthZone .gym-zone-card').forEach((btn) => {
+    const selected = btn.getAttribute('data-zone') === gymWizardState.zone;
+    btn.classList.toggle('is-selected', selected);
+    btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+  if (gymZoneNext) {
+    gymZoneNext.disabled = !gymWizardState.zone;
+  }
+}
+
+function selectGymZone(zone, cardEl) {
+  if (!zone) return;
+  gymWizardState.zone = zone;
+  updateGymZoneSelectionUI();
+  if (cardEl) {
+    cardEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+}
+
+function advanceFromGymZoneStep() {
+  const zone = gymWizardState.zone;
+  if (!zone) return;
+  if (zone === 'superior') {
+    openGymSessionStep();
+    return;
+  }
+  openGymComingSoon(`${GYM_ZONE_LABELS[zone] || 'Esta zona'} estará disponible en una próxima versión.`);
 }
 
 function buildGymRoutineText() {
@@ -1517,6 +1552,7 @@ function gymWizardGoBack() {
     gymWizardState.zone = null;
     showGymWizardStep('category');
     updateGymCategorySelectionUI();
+    updateGymZoneSelectionUI();
   }
 }
 
@@ -1529,17 +1565,13 @@ function wireGymWizardEvents() {
 
   gymCategoryNext?.addEventListener('click', advanceFromGymCategoryStep);
 
-  document.querySelectorAll('.gym-zone-card').forEach((btn) => {
+  document.querySelectorAll('#gymStepStrengthZone .gym-zone-card').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const zone = btn.getAttribute('data-zone');
-      gymWizardState.zone = zone;
-      if (zone === 'superior') {
-        openGymSessionStep();
-        return;
-      }
-      openGymComingSoon(`${GYM_ZONE_LABELS[zone] || 'Esta zona'} estará disponible en una próxima versión.`);
+      selectGymZone(btn.getAttribute('data-zone'), btn);
     });
   });
+
+  gymZoneNext?.addEventListener('click', advanceFromGymZoneStep);
 
   gymWizardBack?.addEventListener('click', gymWizardGoBack);
   gymComingSoonBack?.addEventListener('click', gymWizardGoBack);
