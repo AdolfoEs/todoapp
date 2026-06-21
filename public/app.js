@@ -1326,6 +1326,8 @@ const gymStepSession = document.getElementById('gymStepSession');
 const gymStepComingSoon = document.getElementById('gymStepComingSoon');
 const gymWizardBack = document.getElementById('gymWizardBack');
 const gymCategoryTitle = document.getElementById('gymCategoryTitle');
+const gymCategoryCarousel = document.getElementById('gymCategoryCarousel');
+const gymCategoryNext = document.getElementById('gymCategoryNext');
 const gymFilterMuscle = document.getElementById('gymFilterMuscle');
 const gymFilterEquipment = document.getElementById('gymFilterEquipment');
 const gymExerciseList = document.getElementById('gymExerciseList');
@@ -1340,6 +1342,7 @@ function resetGymWizardState() {
   GYM_EXERCISES_CATALOG.forEach((ex) => {
     gymWizardState.exercises[ex.id] = { series: '', reps: '', weight: '' };
   });
+  updateGymCategorySelectionUI();
 }
 
 function getGymUserFirstName() {
@@ -1365,6 +1368,40 @@ function showGymWizardStep(step) {
   if (gymWizardBack) {
     gymWizardBack.classList.toggle('is-hidden', step === 'category');
   }
+  if (step === 'category') {
+    updateGymCategorySelectionUI();
+  }
+}
+
+function updateGymCategorySelectionUI() {
+  document.querySelectorAll('#gymStepCategory .gym-category-card').forEach((btn) => {
+    const cat = btn.getAttribute('data-category');
+    const selected = cat === gymWizardState.category;
+    btn.classList.toggle('is-selected', selected);
+    btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+  if (gymCategoryNext) {
+    gymCategoryNext.disabled = !gymWizardState.category;
+  }
+}
+
+function selectGymCategory(category, cardEl) {
+  if (!category) return;
+  gymWizardState.category = category;
+  updateGymCategorySelectionUI();
+  if (cardEl) {
+    cardEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+}
+
+function advanceFromGymCategoryStep() {
+  const category = gymWizardState.category;
+  if (!category) return;
+  if (category === 'fuerza') {
+    showGymWizardStep('strengthZone');
+    return;
+  }
+  openGymComingSoon(`${GYM_CATEGORY_LABELS[category] || 'Esta categoría'} estará disponible en una próxima versión.`);
 }
 
 function buildGymRoutineText() {
@@ -1479,21 +1516,18 @@ function gymWizardGoBack() {
     gymWizardState.category = null;
     gymWizardState.zone = null;
     showGymWizardStep('category');
+    updateGymCategorySelectionUI();
   }
 }
 
 function wireGymWizardEvents() {
-  document.querySelectorAll('.gym-category-card').forEach((btn) => {
+  document.querySelectorAll('#gymStepCategory .gym-category-card').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const category = btn.getAttribute('data-category');
-      gymWizardState.category = category;
-      if (category === 'fuerza') {
-        showGymWizardStep('strengthZone');
-        return;
-      }
-      openGymComingSoon(`${GYM_CATEGORY_LABELS[category] || 'Esta categoría'} estará disponible en una próxima versión.`);
+      selectGymCategory(btn.getAttribute('data-category'), btn);
     });
   });
+
+  gymCategoryNext?.addEventListener('click', advanceFromGymCategoryStep);
 
   document.querySelectorAll('.gym-zone-card').forEach((btn) => {
     btn.addEventListener('click', () => {

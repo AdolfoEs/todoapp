@@ -239,32 +239,42 @@
           <button type="button" class="modal-close gym-wizard-close" onclick="window.closeModalGym?.()" aria-label="Cerrar">×</button>
         </div>
 
-        <!-- Paso 1: categoría -->
-        <section id="gymStepCategory" class="gym-wizard-step" aria-labelledby="gymCategoryTitle">
-          <h2 id="gymCategoryTitle" class="gym-wizard-title">¿Qué entrenamos hoy?</h2>
-          <p id="gymCategorySubtitle" class="gym-wizard-subtitle">Elige el tipo de sesión</p>
-          <div class="gym-category-grid" role="list">
-            <button type="button" class="gym-category-card" data-category="fuerza" role="listitem">
-              <span class="gym-category-icon" aria-hidden="true">🏋️</span>
-              <span class="gym-category-name">Fuerza</span>
-              <span class="gym-category-desc">Gimnasio / Pesas · Hipertrofia y aislamiento</span>
-            </button>
-            <button type="button" class="gym-category-card" data-category="calistenia" role="listitem">
-              <span class="gym-category-icon" aria-hidden="true">🤸</span>
-              <span class="gym-category-name">Calistenia</span>
-              <span class="gym-category-desc">Bodyweight · Habilidad y compuestos</span>
-            </button>
-            <button type="button" class="gym-category-card" data-category="cardio" role="listitem">
-              <span class="gym-category-icon" aria-hidden="true">🏃</span>
-              <span class="gym-category-name">Cardio / Resistencia</span>
-              <span class="gym-category-desc">Running, HIIT y resistencia</span>
-            </button>
-            <button type="button" class="gym-category-card" data-category="movilidad" role="listitem">
-              <span class="gym-category-icon" aria-hidden="true">🧘</span>
-              <span class="gym-category-name">Movilidad / Salud</span>
-              <span class="gym-category-desc">Estiramientos, postura y recuperación</span>
-            </button>
+        <!-- Paso 1: categoría (carrusel) -->
+        <section id="gymStepCategory" class="gym-wizard-step gym-wizard-step--category" aria-labelledby="gymCategoryTitle">
+          <h2 id="gymCategoryTitle" class="gym-wizard-title gym-category-heading">¿Qué entrenamos hoy?</h2>
+          <div class="gym-category-carousel-wrap">
+            <div id="gymCategoryCarousel" class="gym-category-carousel" role="list" aria-label="Tipo de entrenamiento">
+              <button type="button" class="gym-category-card" data-category="fuerza" role="listitem" aria-pressed="false">
+                <div class="gym-category-card-media">
+                  <img src="/icons/gym/fuerza.png" alt="" width="200" height="240" loading="lazy" />
+                </div>
+                <span class="gym-category-name">🏋️ Fuerza</span>
+                <span class="gym-category-tagline">[Torso, Piernas]</span>
+              </button>
+              <button type="button" class="gym-category-card" data-category="cardio" role="listitem" aria-pressed="false">
+                <div class="gym-category-card-media">
+                  <img src="/icons/gym/cardio.png" alt="" width="200" height="240" loading="lazy" />
+                </div>
+                <span class="gym-category-name">🏃 Cardio</span>
+                <span class="gym-category-tagline">[Running, HIIT]</span>
+              </button>
+              <button type="button" class="gym-category-card" data-category="calistenia" role="listitem" aria-pressed="false">
+                <div class="gym-category-card-media">
+                  <img src="/icons/gym/calistenia.png" alt="" width="200" height="240" loading="lazy" />
+                </div>
+                <span class="gym-category-name">🤸 Calistenia</span>
+                <span class="gym-category-tagline">[Peso Corporal, Street Lifting]</span>
+              </button>
+              <button type="button" class="gym-category-card" data-category="movilidad" role="listitem" aria-pressed="false">
+                <div class="gym-category-card-media">
+                  <img src="/icons/gym/movilidad.png" alt="" width="200" height="240" loading="lazy" />
+                </div>
+                <span class="gym-category-name">🧘 Movilidad</span>
+                <span class="gym-category-tagline">[Flexibilidad, Recuperación]</span>
+              </button>
+            </div>
           </div>
+          <button type="button" id="gymCategoryNext" class="gym-category-next" disabled>Siguiente</button>
         </section>
 
         <!-- Paso 2: zona fuerza -->
