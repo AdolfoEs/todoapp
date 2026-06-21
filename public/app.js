@@ -1207,7 +1207,8 @@ function gymTimerTick() {
       if (gymTimerCurrentSet >= gymTimerTotalSets) {
         gymTimerStop();
         if (currentGymTask && currentGymTask.id) {
-          apiSaveGym(currentGymTask.id, gymRoutine?.value?.trim() || '', gymDuration?.value ? parseInt(gymDuration.value, 10) : null, gymTimerTotalSets, gymTimerSecondsPerSet, gymTimerRestSeconds, new Date().toISOString()).catch(() => {});
+          syncGymHiddenFields();
+          apiSaveGym(currentGymTask.id, gymRoutine?.value?.trim() || buildGymRoutineText(), gymDuration?.value ? parseInt(gymDuration.value, 10) : null, gymTimerTotalSets, gymTimerSecondsPerSet, gymTimerRestSeconds, new Date().toISOString()).catch(() => {});
         }
         return;
       }
@@ -1274,14 +1275,259 @@ async function apiSaveGym(taskId, routine_text, duration_min, series, seconds_pe
   return res.json();
 }
 
+// ========== Gym Wizard V2 ==========
+// Catálogo demo — ampliar luego con ExerciseDB / wger
+const GYM_EXERCISES_CATALOG = [
+  { id: 'bench-press', name: 'Press de banca', muscles: ['pecho'], equipment: ['barra'], icon: '🏋️' },
+  { id: 'dumbbell-row', name: 'Remo con mancuerna', muscles: ['espalda'], equipment: ['mancuernas'], icon: '🚣' },
+  { id: 'ohp', name: 'Press militar', muscles: ['hombros'], equipment: ['barra'], icon: '🙆' },
+  { id: 'bicep-curl', name: 'Curl de bíceps', muscles: ['biceps'], equipment: ['mancuernas'], icon: '💪' },
+  { id: 'tricep-ext', name: 'Extensión de tríceps', muscles: ['triceps'], equipment: ['mancuernas'], icon: '🔔' },
+];
+
+const GYM_MUSCLE_LABELS = {
+  pecho: 'Pecho',
+  espalda: 'Espalda',
+  hombros: 'Hombros',
+  biceps: 'Bíceps',
+  triceps: 'Tríceps',
+};
+
+const GYM_EQUIPMENT_LABELS = {
+  barra: 'Barra',
+  mancuernas: 'Mancuernas',
+  maquina: 'Máquina',
+  peso_corporal: 'Peso corporal',
+};
+
+const GYM_CATEGORY_LABELS = {
+  fuerza: 'Fuerza',
+  calistenia: 'Calistenia',
+  cardio: 'Cardio / Resistencia',
+  movilidad: 'Movilidad / Salud',
+};
+
+const GYM_ZONE_LABELS = {
+  superior: 'Tren Superior',
+  inferior: 'Tren Inferior',
+  fullbody: 'Full Body',
+};
+
+const gymWizardState = {
+  step: 'category',
+  category: null,
+  zone: null,
+  exercises: {},
+};
+
+const gymStepCategory = document.getElementById('gymStepCategory');
+const gymStepStrengthZone = document.getElementById('gymStepStrengthZone');
+const gymStepSession = document.getElementById('gymStepSession');
+const gymStepComingSoon = document.getElementById('gymStepComingSoon');
+const gymWizardBack = document.getElementById('gymWizardBack');
+const gymCategoryTitle = document.getElementById('gymCategoryTitle');
+const gymFilterMuscle = document.getElementById('gymFilterMuscle');
+const gymFilterEquipment = document.getElementById('gymFilterEquipment');
+const gymExerciseList = document.getElementById('gymExerciseList');
+const gymComingSoonText = document.getElementById('gymComingSoonText');
+const gymComingSoonBack = document.getElementById('gymComingSoonBack');
+
+function resetGymWizardState() {
+  gymWizardState.step = 'category';
+  gymWizardState.category = null;
+  gymWizardState.zone = null;
+  gymWizardState.exercises = {};
+  GYM_EXERCISES_CATALOG.forEach((ex) => {
+    gymWizardState.exercises[ex.id] = { series: '', reps: '', weight: '' };
+  });
+}
+
+function getGymUserFirstName() {
+  try {
+    const u = JSON.parse(localStorage.getItem('user') || 'null');
+    if (u?.nombre) return String(u.nombre).trim();
+  } catch (_) {}
+  return 'Usuario';
+}
+
+function showGymWizardStep(step) {
+  gymWizardState.step = step;
+  const steps = {
+    category: gymStepCategory,
+    strengthZone: gymStepStrengthZone,
+    session: gymStepSession,
+    comingSoon: gymStepComingSoon,
+  };
+  Object.entries(steps).forEach(([key, el]) => {
+    if (!el) return;
+    el.classList.toggle('is-hidden', key !== step);
+  });
+  if (gymWizardBack) {
+    gymWizardBack.classList.toggle('is-hidden', step === 'category');
+  }
+}
+
+function buildGymRoutineText() {
+  const cat = GYM_CATEGORY_LABELS[gymWizardState.category] || gymWizardState.category || 'Entrenamiento';
+  const zone = gymWizardState.zone ? (GYM_ZONE_LABELS[gymWizardState.zone] || gymWizardState.zone) : '';
+  const exerciseParts = GYM_EXERCISES_CATALOG.filter((ex) => {
+    const d = gymWizardState.exercises[ex.id];
+    return d && (d.series || d.reps || d.weight);
+  }).map((ex) => {
+    const d = gymWizardState.exercises[ex.id];
+    const s = d.series || '-';
+    const r = d.reps || '-';
+    const w = d.weight ? `${d.weight}kg` : '';
+    return `${ex.name} ${s}×${r}${w ? ' ' + w : ''}`.trim();
+  });
+  const head = zone ? `${cat} · ${zone}` : cat;
+  return exerciseParts.length ? `${head} · ${exerciseParts.join(', ')}` : head;
+}
+
+function syncGymHiddenFields() {
+  if (gymRoutine) gymRoutine.value = buildGymRoutineText();
+  if (gymDuration) gymDuration.value = '';
+}
+
+function renderGymExerciseList() {
+  if (!gymExerciseList) return;
+  const muscleFilter = gymFilterMuscle?.value || '';
+  const equipFilter = gymFilterEquipment?.value || '';
+  const filtered = GYM_EXERCISES_CATALOG.filter((ex) => {
+    if (muscleFilter && !ex.muscles.includes(muscleFilter)) return false;
+    if (equipFilter && !ex.equipment.includes(equipFilter)) return false;
+    return true;
+  });
+
+  gymExerciseList.innerHTML = '';
+  if (!filtered.length) {
+    gymExerciseList.innerHTML = '<p class="gym-wizard-subtitle">No hay ejercicios con esos filtros.</p>';
+    return;
+  }
+
+  filtered.forEach((ex) => {
+    const data = gymWizardState.exercises[ex.id] || { series: '', reps: '', weight: '' };
+    const card = document.createElement('article');
+    card.className = 'gym-exercise-card';
+    card.dataset.exerciseId = ex.id;
+    const muscleTags = ex.muscles.map((m) => GYM_MUSCLE_LABELS[m] || m).join(', ');
+    const equipTags = ex.equipment.map((e) => GYM_EQUIPMENT_LABELS[e] || e).join(', ');
+    card.innerHTML = `
+      <div class="gym-exercise-head">
+        <div class="gym-exercise-thumb" aria-hidden="true">${ex.icon || '🏋️'}</div>
+        <div class="gym-exercise-meta">
+          <h4 class="gym-exercise-name">${ex.name}</h4>
+          <div class="gym-exercise-tags">
+            <span class="gym-exercise-tag">${muscleTags}</span>
+            <span class="gym-exercise-tag">${equipTags}</span>
+          </div>
+        </div>
+      </div>
+      <div class="gym-exercise-fields">
+        <div class="field">
+          <label class="label">Series</label>
+          <input class="input gym-wizard-input gym-ex-series" type="number" min="0" placeholder="5" value="${data.series ?? ''}" />
+        </div>
+        <div class="field">
+          <label class="label">Reps</label>
+          <input class="input gym-wizard-input gym-ex-reps" type="number" min="0" placeholder="8" value="${data.reps ?? ''}" />
+        </div>
+        <div class="field">
+          <label class="label">Peso (kg)</label>
+          <input class="input gym-wizard-input gym-ex-weight" type="number" min="0" step="0.5" placeholder="60" value="${data.weight ?? ''}" />
+        </div>
+      </div>
+    `;
+
+    const syncExercise = () => {
+      gymWizardState.exercises[ex.id] = {
+        series: card.querySelector('.gym-ex-series')?.value ?? '',
+        reps: card.querySelector('.gym-ex-reps')?.value ?? '',
+        weight: card.querySelector('.gym-ex-weight')?.value ?? '',
+      };
+      syncGymHiddenFields();
+    };
+    card.querySelectorAll('.gym-ex-series, .gym-ex-reps, .gym-ex-weight').forEach((input) => {
+      input.addEventListener('input', syncExercise);
+    });
+    gymExerciseList.appendChild(card);
+  });
+}
+
+function openGymSessionStep() {
+  showGymWizardStep('session');
+  if (gymFilterMuscle) gymFilterMuscle.value = '';
+  if (gymFilterEquipment) gymFilterEquipment.value = '';
+  renderGymExerciseList();
+  syncGymHiddenFields();
+}
+
+function openGymComingSoon(message) {
+  if (gymComingSoonText) gymComingSoonText.textContent = message;
+  showGymWizardStep('comingSoon');
+}
+
+function gymWizardGoBack() {
+  gymTimerStop();
+  if (gymWizardState.step === 'session' || gymWizardState.step === 'comingSoon') {
+    if (gymWizardState.category === 'fuerza') {
+      showGymWizardStep('strengthZone');
+      return;
+    }
+  }
+  if (gymWizardState.step === 'strengthZone' || gymWizardState.step === 'comingSoon') {
+    gymWizardState.category = null;
+    gymWizardState.zone = null;
+    showGymWizardStep('category');
+  }
+}
+
+function wireGymWizardEvents() {
+  document.querySelectorAll('.gym-category-card').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const category = btn.getAttribute('data-category');
+      gymWizardState.category = category;
+      if (category === 'fuerza') {
+        showGymWizardStep('strengthZone');
+        return;
+      }
+      openGymComingSoon(`${GYM_CATEGORY_LABELS[category] || 'Esta categoría'} estará disponible en una próxima versión.`);
+    });
+  });
+
+  document.querySelectorAll('.gym-zone-card').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const zone = btn.getAttribute('data-zone');
+      gymWizardState.zone = zone;
+      if (zone === 'superior') {
+        openGymSessionStep();
+        return;
+      }
+      openGymComingSoon(`${GYM_ZONE_LABELS[zone] || 'Esta zona'} estará disponible en una próxima versión.`);
+    });
+  });
+
+  gymWizardBack?.addEventListener('click', gymWizardGoBack);
+  gymComingSoonBack?.addEventListener('click', gymWizardGoBack);
+  gymFilterMuscle?.addEventListener('change', renderGymExerciseList);
+  gymFilterEquipment?.addEventListener('change', renderGymExerciseList);
+}
+
+wireGymWizardEvents();
+
 function openModalGym(task) {
   currentGymTask = task;
   gymTimerStop();
-  if (gymRoutine) gymRoutine.value = '';
-  if (gymDuration) gymDuration.value = '';
+  resetGymWizardState();
   if (gymSeries) gymSeries.value = '';
   if (gymSecondsPerSet) gymSecondsPerSet.value = '';
   if (gymRestSecondsInput) gymRestSecondsInput.value = '';
+  if (gymRoutine) gymRoutine.value = '';
+  if (gymDuration) gymDuration.value = '';
+  if (gymCategoryTitle) {
+    gymCategoryTitle.textContent = `¿${getGymUserFirstName()}, qué entrenamos hoy?`;
+  }
+  showGymWizardStep('category');
   if (modalGym) {
     modalGym.classList.remove('is-hidden');
     modalGym.setAttribute('aria-hidden', 'false');
@@ -1289,10 +1535,16 @@ function openModalGym(task) {
   if (task && task.id) {
     apiGetGymProgress(task.id).then((data) => {
       if (gymRoutine) gymRoutine.value = data.routine_text || '';
-      if (gymDuration) gymDuration.value = data.duration_min != null ? String(data.duration_min) : '';
       if (gymSeries) gymSeries.value = data.series != null ? String(data.series) : '';
       if (gymSecondsPerSet) gymSecondsPerSet.value = data.seconds_per_set != null ? String(data.seconds_per_set) : '';
       if (gymRestSecondsInput) gymRestSecondsInput.value = data.rest_seconds != null ? String(data.rest_seconds) : '';
+      const routine = (data.routine_text || '').toLowerCase();
+      if (routine.includes('fuerza') && routine.includes('tren superior')) {
+        gymWizardState.category = 'fuerza';
+        gymWizardState.zone = 'superior';
+        openGymSessionStep();
+      }
+      syncGymHiddenFields();
     }).catch(() => {});
   }
 }
@@ -1303,6 +1555,8 @@ function closeModalGym() {
     modalGym.classList.add('is-hidden');
     modalGym.setAttribute('aria-hidden', 'true');
   }
+  resetGymWizardState();
+  showGymWizardStep('category');
   currentGymTask = null;
 }
 
@@ -1671,11 +1925,12 @@ if (stopwatchStartBtn) stopwatchStartBtn.addEventListener('click', stopwatchStar
 if (stopwatchPauseBtn) stopwatchPauseBtn.addEventListener('click', stopwatchPause);
 if (stopwatchResetBtn) stopwatchResetBtn.addEventListener('click', stopwatchReset);
 
-if (gymSaveBtn && gymRoutine && gymDuration) {
+if (gymSaveBtn && gymRoutine) {
   gymSaveBtn.addEventListener('click', async () => {
     if (!currentGymTask || !currentGymTask.id) return;
-    const routine_text = gymRoutine.value.trim();
-    const durVal = gymDuration.value.trim();
+    syncGymHiddenFields();
+    const routine_text = gymRoutine.value.trim() || buildGymRoutineText();
+    const durVal = gymDuration?.value?.trim() ?? '';
     const duration_min = durVal === '' ? null : parseInt(durVal, 10);
     const seriesVal = gymSeries?.value ? parseInt(gymSeries.value, 10) : null;
     const secondsPerSetVal = gymSecondsPerSet?.value ? parseInt(gymSecondsPerSet.value, 10) : null;

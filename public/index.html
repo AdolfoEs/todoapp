@@ -231,51 +231,141 @@
       </div>
     </div>
 
-    <!-- Modal Gym / Entrenamiento -->
-    <div id="modalGym" class="modal-overlay is-hidden" aria-hidden="true">
-      <div class="modal modal-gym" role="dialog" aria-modal="true" aria-labelledby="modalGymTitle">
-        <h2 id="modalGymTitle" class="modal-title">💪 Entrenamiento</h2>
-        <div class="modal-gym-form">
-          <div class="field">
-            <label class="label" for="gymRoutine">Rutina o ejercicio</label>
-            <input id="gymRoutine" class="input" type="text" placeholder="Ej: Pecho, espalda, 5 km" autocomplete="off" />
+    <!-- Modal Gym / Entrenamiento V2 (wizard) -->
+    <div id="modalGym" class="modal-overlay gym-wizard-overlay is-hidden" aria-hidden="true">
+      <div class="modal modal-gym modal-gym-v2" role="dialog" aria-modal="true" aria-labelledby="modalGymTitle">
+        <div class="gym-wizard-topbar">
+          <button type="button" id="gymWizardBack" class="gym-wizard-back is-hidden" aria-label="Volver">←</button>
+          <button type="button" class="modal-close gym-wizard-close" onclick="window.closeModalGym?.()" aria-label="Cerrar">×</button>
+        </div>
+
+        <!-- Paso 1: categoría -->
+        <section id="gymStepCategory" class="gym-wizard-step" aria-labelledby="gymCategoryTitle">
+          <h2 id="gymCategoryTitle" class="gym-wizard-title">¿Qué entrenamos hoy?</h2>
+          <p id="gymCategorySubtitle" class="gym-wizard-subtitle">Elige el tipo de sesión</p>
+          <div class="gym-category-grid" role="list">
+            <button type="button" class="gym-category-card" data-category="fuerza" role="listitem">
+              <span class="gym-category-icon" aria-hidden="true">🏋️</span>
+              <span class="gym-category-name">Fuerza</span>
+              <span class="gym-category-desc">Gimnasio / Pesas · Hipertrofia y aislamiento</span>
+            </button>
+            <button type="button" class="gym-category-card" data-category="calistenia" role="listitem">
+              <span class="gym-category-icon" aria-hidden="true">🤸</span>
+              <span class="gym-category-name">Calistenia</span>
+              <span class="gym-category-desc">Bodyweight · Habilidad y compuestos</span>
+            </button>
+            <button type="button" class="gym-category-card" data-category="cardio" role="listitem">
+              <span class="gym-category-icon" aria-hidden="true">🏃</span>
+              <span class="gym-category-name">Cardio / Resistencia</span>
+              <span class="gym-category-desc">Running, HIIT y resistencia</span>
+            </button>
+            <button type="button" class="gym-category-card" data-category="movilidad" role="listitem">
+              <span class="gym-category-icon" aria-hidden="true">🧘</span>
+              <span class="gym-category-name">Movilidad / Salud</span>
+              <span class="gym-category-desc">Estiramientos, postura y recuperación</span>
+            </button>
           </div>
-          <div class="field">
-            <label class="label" for="gymDuration">Duración (min)</label>
-            <input id="gymDuration" class="input" type="number" min="0" placeholder="Ej: 45" />
+        </section>
+
+        <!-- Paso 2: zona fuerza -->
+        <section id="gymStepStrengthZone" class="gym-wizard-step is-hidden" aria-labelledby="gymStrengthTitle">
+          <div class="gym-strength-hero">
+            <span class="gym-strength-hero-icon" aria-hidden="true">🏋️</span>
+            <h2 id="gymStrengthTitle" class="gym-wizard-title">Fuerza 💪</h2>
           </div>
-          <div class="gym-timer-section">
+          <div class="gym-zone-list" role="list">
+            <button type="button" class="gym-zone-card" data-zone="superior" role="listitem">
+              <span class="gym-zone-icon" aria-hidden="true">💥</span>
+              <span class="gym-zone-name">Tren Superior (Torso)</span>
+              <span class="gym-zone-desc">Pecho, espalda, hombros, bíceps y tríceps</span>
+            </button>
+            <button type="button" class="gym-zone-card" data-zone="inferior" role="listitem">
+              <span class="gym-zone-icon" aria-hidden="true">🍗</span>
+              <span class="gym-zone-name">Tren Inferior (Piernas)</span>
+              <span class="gym-zone-desc">Cuádriceps, isquios, glúteos y pantorrillas</span>
+            </button>
+            <button type="button" class="gym-zone-card" data-zone="fullbody" role="listitem">
+              <span class="gym-zone-icon" aria-hidden="true">🦍</span>
+              <span class="gym-zone-name">Full Body (Cuerpo Completo)</span>
+              <span class="gym-zone-desc">Todo el cuerpo en la misma sesión</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Paso 3: sesión tren superior -->
+        <section id="gymStepSession" class="gym-wizard-step is-hidden" aria-labelledby="modalGymTitle">
+          <h2 id="modalGymTitle" class="gym-wizard-title gym-session-title">FluxList Fitness: Día de Fuerza</h2>
+          <p class="gym-wizard-subtitle gym-session-subtitle">Tren Superior · Demo</p>
+
+          <div class="gym-session-filters">
+            <div class="field">
+              <label class="label" for="gymFilterMuscle">Filtrar por músculo</label>
+              <select id="gymFilterMuscle" class="input gym-wizard-select">
+                <option value="">Todos</option>
+                <option value="pecho">Pecho</option>
+                <option value="espalda">Espalda</option>
+                <option value="hombros">Hombros</option>
+                <option value="biceps">Bíceps</option>
+                <option value="triceps">Tríceps</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label" for="gymFilterEquipment">Filtrar por equipo</label>
+              <select id="gymFilterEquipment" class="input gym-wizard-select">
+                <option value="">Todos</option>
+                <option value="barra">Barra</option>
+                <option value="mancuernas">Mancuernas</option>
+                <option value="maquina">Máquina</option>
+                <option value="peso_corporal">Peso corporal</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="gymExerciseList" class="gym-exercise-list" aria-live="polite"></div>
+
+          <div class="gym-timer-section gym-timer-section--v2">
             <h3 class="gym-timer-title">Timer por series</h3>
             <div class="gym-timer-fields">
               <div class="field">
                 <label class="label" for="gymSeries">Nº de series</label>
-                <input id="gymSeries" class="input" type="number" min="1" placeholder="5" />
+                <input id="gymSeries" class="input gym-wizard-input" type="number" min="1" placeholder="5" />
               </div>
               <div class="field">
                 <label class="label" for="gymSecondsPerSet">Segundos por serie</label>
-                <input id="gymSecondsPerSet" class="input" type="number" min="1" placeholder="20" />
+                <input id="gymSecondsPerSet" class="input gym-wizard-input" type="number" min="1" placeholder="20" />
               </div>
               <div class="field">
                 <label class="label" for="gymRestSeconds">Descanso entre series (s)</label>
-                <input id="gymRestSeconds" class="input" type="number" min="0" placeholder="30" />
+                <input id="gymRestSeconds" class="input gym-wizard-input" type="number" min="0" placeholder="30" />
               </div>
             </div>
             <div id="gymTimerDisplay" class="gym-timer-display is-hidden">Serie 1/5 · 0:20</div>
             <div class="gym-timer-btns">
-              <button type="button" id="gymTimerStart" class="btn btn-primary">Iniciar</button>
-              <button type="button" id="gymTimerPause" class="btn btn-ghost is-hidden">Pausar</button>
-              <button type="button" id="gymTimerReset" class="btn btn-ghost">Reiniciar</button>
+              <button type="button" id="gymTimerStart" class="btn btn-primary gym-wizard-btn">Iniciar</button>
+              <button type="button" id="gymTimerPause" class="btn btn-ghost gym-wizard-btn-ghost is-hidden">Pausar</button>
+              <button type="button" id="gymTimerReset" class="btn btn-ghost gym-wizard-btn-ghost">Reiniciar</button>
             </div>
           </div>
-          <div class="modal-gym-actions">
-            <button type="button" id="gymSaveBtn" class="btn btn-primary">Guardar</button>
-            <button type="button" id="gymOpenStopwatchBtn" class="btn btn-stopwatch" aria-label="Abrir cronómetro">
+
+          <div class="modal-gym-actions gym-wizard-actions">
+            <button type="button" id="gymSaveBtn" class="btn btn-primary gym-wizard-btn">Guardar</button>
+            <button type="button" id="gymOpenStopwatchBtn" class="btn btn-stopwatch gym-wizard-btn-ghost" aria-label="Abrir cronómetro">
               <span class="btn-stopwatch-icon" aria-hidden="true">⏱️</span>
               <span>Cronómetro</span>
             </button>
           </div>
-        </div>
-        <button type="button" class="modal-close" onclick="window.closeModalGym?.()" aria-label="Cerrar">×</button>
+        </section>
+
+        <!-- Placeholder otras rutas -->
+        <section id="gymStepComingSoon" class="gym-wizard-step is-hidden" aria-labelledby="gymComingSoonTitle">
+          <h2 id="gymComingSoonTitle" class="gym-wizard-title">Próximamente</h2>
+          <p id="gymComingSoonText" class="gym-wizard-subtitle">Esta ruta estará disponible en una próxima versión.</p>
+          <button type="button" id="gymComingSoonBack" class="btn btn-primary gym-wizard-btn">Volver</button>
+        </section>
+
+        <!-- Campos legacy (API existente) -->
+        <input id="gymRoutine" type="hidden" value="" />
+        <input id="gymDuration" type="hidden" value="" />
       </div>
     </div>
 

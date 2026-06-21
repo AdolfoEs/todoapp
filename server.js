@@ -285,7 +285,115 @@ db.serialize(() => {
       fat_per_100 REAL NOT NULL DEFAULT 0
     )
   `);
-  // Seed básico de alimentos (por 100 g) si la tabla está vacía; luego arranca el servidor
+  migrateFoodsTable(() => seedFoodsAndStart());
+});
+
+// Migración foods: esquemas antiguos → columnas *_per_100
+const FOODS_NUTRITION_COLUMNS = [
+  { newCol: 'calories_per_100', oldCols: ['calories_per_100g', 'calories'] },
+  { newCol: 'protein_per_100', oldCols: ['protein_per_100g', 'protein'] },
+  { newCol: 'carbs_per_100', oldCols: ['carbs_per_100g', 'carbs'] },
+  { newCol: 'fat_per_100', oldCols: ['fat_per_100g', 'fat'] },
+];
+
+function foodNutritionFromRow(row) {
+  if (!row) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  return {
+    calories: row.calories_per_100 ?? row.calories_per_100g ?? row.calories ?? 0,
+    protein: row.protein_per_100 ?? row.protein_per_100g ?? row.protein ?? 0,
+    carbs: row.carbs_per_100 ?? row.carbs_per_100g ?? row.carbs ?? 0,
+    fat: row.fat_per_100 ?? row.fat_per_100g ?? row.fat ?? 0,
+  };
+}
+
+function migrateFoodsTable(cb) {
+  db.all('PRAGMA table_info(foods)', [], (err, cols) => {
+    if (err) {
+      console.error('Error checking foods table:', err.message);
+      return cb();
+    }
+    const names = new Set((cols || []).map((c) => c.name));
+    const toAdd = FOODS_NUTRITION_COLUMNS.filter((m) => !names.has(m.newCol));
+    const copyPairs = FOODS_NUTRITION_COLUMNS.map((m) => {
+      const oldCol = m.oldCols.find((c) => names.has(c));
+      return oldCol ? { newCol: m.newCol, oldCol } : null;
+    }).filter(Boolean);
+
+    if (toAdd.length === 0 && copyPairs.length === 0) return cb();
+
+    const runBackfill = (done) => {
+      if (copyPairs.length === 0) return done();
+      const needsCopyWhere = copyPairs
+        .map((p) => `((${p.newCol} IS NULL OR ${p.newCol} = 0) AND ${p.oldCol} IS NOT NULL AND ${p.oldCol} != 0)`)
+        .join(' OR ');
+      db.get(`SELECT COUNT(*) AS n FROM foods WHERE ${needsCopyWhere}`, [], (countErr, countRow) => {
+        if (countErr || !countRow || countRow.n === 0) return done();
+        const setClause = copyPairs.map((p) => `${p.newCol} = ${p.oldCol}`).join(', ');
+        db.run(`UPDATE foods SET ${setClause}`, (updateErr) => {
+          if (updateErr) console.error('Foods migration backfill:', updateErr.message);
+          else console.log('Foods migration: datos copiados a columnas *_per_100');
+          done();
+        });
+      });
+    };
+
+    if (toAdd.length === 0) {
+      runBackfill(cb);
+      return;
+    }
+
+    console.log('Migrating: actualizando esquema de tabla foods...');
+
+    let i = 0;
+    const addNext = () => {
+      if (i >= toAdd.length) {
+        runBackfill(cb);
+        return;
+      }
+      const { newCol } = toAdd[i++];
+      db.run(`ALTER TABLE foods ADD COLUMN ${newCol} REAL DEFAULT 0`, (addErr) => {
+        if (addErr) console.error(`Foods migration ${newCol}:`, addErr.message);
+        else console.log(`Foods migration: columna ${newCol} agregada`);
+        addNext();
+      });
+    };
+    addNext();
+  });
+}
+
+function insertFoodIfMissing(name, cal, p, c, f, cb) {
+  db.all('PRAGMA table_info(foods)', [], (err, cols) => {
+    if (err) return cb(err);
+    const names = new Set((cols || []).map((col) => col.name));
+    const insertCols = ['name'];
+    const insertVals = [name];
+    const pair = (col, val) => {
+      if (names.has(col)) {
+        insertCols.push(col);
+        insertVals.push(val);
+      }
+    };
+    pair('calories_per_100', cal);
+    pair('protein_per_100', p);
+    pair('carbs_per_100', c);
+    pair('fat_per_100', f);
+    pair('calories_per_100g', cal);
+    pair('protein_per_100g', p);
+    pair('carbs_per_100g', c);
+    pair('fat_per_100g', f);
+    const placeholders = insertCols.map(() => '?').join(', ');
+    insertVals.push(name);
+    db.run(
+      `INSERT INTO foods (${insertCols.join(', ')})
+       SELECT ${placeholders}
+       WHERE NOT EXISTS (SELECT 1 FROM foods WHERE LOWER(TRIM(name)) = LOWER(?))`,
+      insertVals,
+      cb
+    );
+  });
+}
+
+function seedFoodsAndStart() {
   db.get('SELECT COUNT(*) as n FROM foods', [], (err, row) => {
     const n = (row && row.n) || 0;
     if (err) {
@@ -296,15 +404,14 @@ db.serialize(() => {
       console.log('Foods: tabla ya tiene', n, 'alimentos');
       const extra = [
         ['nueces', 654, 15, 14, 65],
-        ['pepino', 15, 0.7, 3.6, 0.1]
+        ['pepino', 15, 0.7, 3.6, 0.1],
       ];
-      const runOne = (i, cb) => {
-        if (i >= extra.length) return cb();
-        const [name, cal, p, c, f] = extra[i];
-        db.run(`INSERT INTO foods (name, calories_per_100, protein_per_100, carbs_per_100, fat_per_100)
-          SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM foods WHERE LOWER(TRIM(name)) = LOWER(?))`, [name, cal, p, c, f, name], (err) => {
-          if (err) console.error('Insert', name, err);
-          runOne(i + 1, cb);
+      const runOne = (idx, cb) => {
+        if (idx >= extra.length) return cb();
+        const [name, cal, p, c, f] = extra[idx];
+        insertFoodIfMissing(name, cal, p, c, f, (insertErr) => {
+          if (insertErr) console.error('Insert', name, insertErr.message);
+          runOne(idx + 1, cb);
         });
       };
       runOne(0, () => startHttpServer());
@@ -332,16 +439,25 @@ db.serialize(() => {
       ['yogur', 59, 10, 3.6, 0.4],
       ['arroz blanco', 130, 2.7, 28, 0.3],
       ['nueces', 654, 15, 14, 65],
-      ['pepino', 15, 0.7, 3.6, 0.1]
+      ['pepino', 15, 0.7, 3.6, 0.1],
     ];
-    const stmt = db.prepare('INSERT INTO foods (name, calories_per_100, protein_per_100, carbs_per_100, fat_per_100) VALUES (?, ?, ?, ?, ?)');
-    seed.forEach(([name, cal, p, c, f]) => stmt.run(name, cal, p, c, f));
-    stmt.finalize(() => {
-      console.log('Seed foods: insertados', seed.length, 'alimentos');
+    let pending = seed.length;
+    if (pending === 0) {
       startHttpServer();
+      return;
+    }
+    seed.forEach(([name, cal, p, c, f]) => {
+      insertFoodIfMissing(name, cal, p, c, f, (insertErr) => {
+        if (insertErr) console.error('Seed insert', name, insertErr.message);
+        pending -= 1;
+        if (pending === 0) {
+          console.log('Seed foods: insertados', seed.length, 'alimentos');
+          startHttpServer();
+        }
+      });
     });
   });
-});
+}
 
 // ============ AUTENTICACIÓN ============
 
@@ -865,11 +981,8 @@ function findInMemory(term) {
 // True si la fila de la DB no tiene datos útiles (evita usar filas viejas con 0)
 function rowHasNoNutrition(row) {
   if (!row) return true;
-  const cal = row.calories_per_100 ?? row.calories ?? 0;
-  const p = row.protein_per_100 ?? row.protein ?? 0;
-  const ch = row.carbs_per_100 ?? row.carbs ?? 0;
-  const f = row.fat_per_100 ?? row.fat ?? 0;
-  return cal === 0 && p === 0 && ch === 0 && f === 0;
+  const n = foodNutritionFromRow(row);
+  return n.calories === 0 && n.protein === 0 && n.carbs === 0 && n.fat === 0;
 }
 
 function getFoodByName(name) {
@@ -919,15 +1032,11 @@ async function calculateFromFoods(lines) {
     const food = await getFoodByName(name);
     if (!food) continue;
     const k = (grams || 0) / 100;
-    // Soporta columnas calories_per_100 o calories (por 100 g)
-    const c = food.calories_per_100 ?? food.calories ?? 0;
-    const p = food.protein_per_100 ?? food.protein ?? 0;
-    const ch = food.carbs_per_100 ?? food.carbs ?? 0;
-    const f = food.fat_per_100 ?? food.fat ?? 0;
-    calories += c * k;
-    protein += p * k;
-    carbs += ch * k;
-    fat += f * k;
+    const n = foodNutritionFromRow(food);
+    calories += n.calories * k;
+    protein += n.protein * k;
+    carbs += n.carbs * k;
+    fat += n.fat * k;
   }
   return { calories, protein, carbs, fat };
 }
