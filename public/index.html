@@ -310,67 +310,81 @@
         </section>
 
         <!-- Paso 3: sesión tren superior -->
-        <section id="gymStepSession" class="gym-wizard-step is-hidden" aria-labelledby="modalGymTitle">
-          <h2 id="modalGymTitle" class="gym-wizard-title gym-session-title">FluxList Fitness: Día de Fuerza</h2>
-          <p class="gym-wizard-subtitle gym-session-subtitle">Tren Superior · Demo</p>
+        <section id="gymStepSession" class="gym-wizard-step gym-wizard-step--session is-hidden" aria-labelledby="modalGymTitle">
+          <header class="gym-session-header">
+            <h2 id="modalGymTitle" class="gym-wizard-title gym-session-title">💪 FluxList Fitness: Día de Fuerza</h2>
+            <p class="gym-wizard-subtitle gym-session-subtitle">Tren Superior · Demo</p>
+          </header>
 
-          <div class="gym-session-filters">
-            <div class="field">
-              <label class="label" for="gymFilterMuscle">Filtrar por músculo</label>
-              <select id="gymFilterMuscle" class="input gym-wizard-select">
-                <option value="">Todos</option>
-                <option value="pecho">Pecho</option>
-                <option value="espalda">Espalda</option>
-                <option value="hombros">Hombros</option>
-                <option value="biceps">Bíceps</option>
-                <option value="triceps">Tríceps</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="label" for="gymFilterEquipment">Filtrar por equipo</label>
-              <select id="gymFilterEquipment" class="input gym-wizard-select">
-                <option value="">Todos</option>
-                <option value="barra">Barra</option>
-                <option value="mancuernas">Mancuernas</option>
-                <option value="maquina">Máquina</option>
-                <option value="peso_corporal">Peso corporal</option>
-              </select>
+          <div class="gym-session-body">
+            <aside class="gym-session-hero" aria-hidden="true">
+              <img src="/icons/gym/tren-superior.png" alt="" width="320" height="400" loading="lazy" />
+            </aside>
+
+            <div class="gym-session-main">
+              <button type="button" id="gymOpenExercisePicker" class="gym-search-exercise-btn">Buscar ejercicio</button>
+              <div id="gymExerciseList" class="gym-exercise-list" aria-live="polite"></div>
             </div>
           </div>
 
-          <div id="gymExerciseList" class="gym-exercise-list" aria-live="polite"></div>
-
-          <div class="gym-timer-section gym-timer-section--v2">
-            <h3 class="gym-timer-title">Timer por series</h3>
-            <div class="gym-timer-fields">
-              <div class="field">
-                <label class="label" for="gymSeries">Nº de series</label>
-                <input id="gymSeries" class="input gym-wizard-input" type="number" min="1" placeholder="5" />
+          <footer class="gym-session-footer">
+            <div id="gymTimerSection" class="gym-timer-section gym-timer-section--v2">
+              <button type="button" id="gymTimerToggle" class="gym-timer-toggle" aria-expanded="false" aria-controls="gymTimerPanel">
+                <span class="gym-timer-toggle-main">
+                  <span class="gym-timer-toggle-label">⏱️ Timer por series</span>
+                  <span id="gymTimerToggleHint" class="gym-timer-toggle-hint"></span>
+                </span>
+                <span class="gym-timer-toggle-chevron" aria-hidden="true"></span>
+              </button>
+              <div id="gymTimerPanel" class="gym-timer-panel">
+                <div class="gym-timer-panel-inner">
+                <h3 class="gym-timer-title">Timer por series</h3>
+                <div class="gym-timer-fields">
+                <div class="field">
+                  <label class="label" for="gymSeries">Nº de series</label>
+                  <input id="gymSeries" class="input gym-wizard-input" type="number" min="1" placeholder="5" />
+                </div>
+                <div class="field">
+                  <label class="label" for="gymSecondsPerSet">Segundos por serie</label>
+                  <input id="gymSecondsPerSet" class="input gym-wizard-input" type="number" min="1" placeholder="20" />
+                </div>
+                <div class="field">
+                  <label class="label" for="gymRestSeconds">Descanso entre series (s)</label>
+                  <input id="gymRestSeconds" class="input gym-wizard-input" type="number" min="0" placeholder="30" />
+                </div>
               </div>
-              <div class="field">
-                <label class="label" for="gymSecondsPerSet">Segundos por serie</label>
-                <input id="gymSecondsPerSet" class="input gym-wizard-input" type="number" min="1" placeholder="20" />
+              <div id="gymTimerDisplay" class="gym-timer-display is-hidden">Serie 1/5 · 0:20</div>
+              <div class="gym-timer-btns">
+                <button type="button" id="gymTimerStart" class="btn btn-primary gym-wizard-btn">Iniciar</button>
+                <button type="button" id="gymTimerPause" class="btn btn-ghost gym-wizard-btn-ghost is-hidden">Pausar</button>
+                <button type="button" id="gymTimerReset" class="btn btn-ghost gym-wizard-btn-ghost">Reiniciar</button>
               </div>
-              <div class="field">
-                <label class="label" for="gymRestSeconds">Descanso entre series (s)</label>
-                <input id="gymRestSeconds" class="input gym-wizard-input" type="number" min="0" placeholder="30" />
+                </div>
               </div>
             </div>
-            <div id="gymTimerDisplay" class="gym-timer-display is-hidden">Serie 1/5 · 0:20</div>
-            <div class="gym-timer-btns">
-              <button type="button" id="gymTimerStart" class="btn btn-primary gym-wizard-btn">Iniciar</button>
-              <button type="button" id="gymTimerPause" class="btn btn-ghost gym-wizard-btn-ghost is-hidden">Pausar</button>
-              <button type="button" id="gymTimerReset" class="btn btn-ghost gym-wizard-btn-ghost">Reiniciar</button>
-            </div>
-          </div>
 
-          <div class="modal-gym-actions gym-wizard-actions">
-            <button type="button" id="gymSaveBtn" class="btn btn-primary gym-wizard-btn">Guardar</button>
-            <button type="button" id="gymOpenStopwatchBtn" class="btn btn-stopwatch gym-wizard-btn-ghost" aria-label="Abrir cronómetro">
-              <span class="btn-stopwatch-icon" aria-hidden="true">⏱️</span>
-              <span>Cronómetro</span>
-            </button>
+            <div class="modal-gym-actions gym-wizard-actions">
+              <button type="button" id="gymSaveBtn" class="btn btn-primary gym-wizard-btn">Guardar</button>
+              <button type="button" id="gymOpenStopwatchBtn" class="btn btn-stopwatch gym-wizard-btn-ghost" aria-label="Abrir cronómetro">
+                <span class="btn-stopwatch-icon" aria-hidden="true">⏱️</span>
+                <span>Cronómetro</span>
+              </button>
+            </div>
+          </footer>
+        </section>
+
+        <!-- Paso 3b: catálogo de ejercicios -->
+        <section id="gymStepExercisePicker" class="gym-wizard-step gym-wizard-step--picker is-hidden" aria-labelledby="gymPickerTitle">
+          <header class="gym-picker-header">
+            <h2 id="gymPickerTitle" class="gym-wizard-title gym-picker-title">Buscar ejercicio</h2>
+            <p class="gym-wizard-subtitle gym-picker-subtitle">Tren Superior · Toca para añadir a tu sesión</p>
+          </header>
+          <div class="gym-picker-search-wrap">
+            <label class="label gym-picker-search-label" for="gymExerciseSearch">Buscar</label>
+            <input id="gymExerciseSearch" class="input gym-wizard-input gym-picker-search" type="search" placeholder="Ej: press de banca, polea, remo..." autocomplete="off" />
           </div>
+          <div id="gymExercisePickerGrid" class="gym-exercise-picker-grid" role="list" aria-label="Catálogo de ejercicios"></div>
+          <button type="button" id="gymPickerDone" class="gym-picker-done">Listo</button>
         </section>
 
         <!-- Placeholder otras rutas -->
@@ -383,6 +397,17 @@
         <!-- Campos legacy (API existente) -->
         <input id="gymRoutine" type="hidden" value="" />
         <input id="gymDuration" type="hidden" value="" />
+
+        <div id="gymMediaViewer" class="gym-media-viewer is-hidden" aria-hidden="true">
+          <div class="gym-media-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="gymMediaViewerTitle">
+            <button type="button" id="gymMediaViewerClose" class="gym-media-viewer-close" aria-label="Cerrar visor de ejercicio">×</button>
+            <h3 id="gymMediaViewerTitle" class="gym-media-viewer-title">Ejercicio</h3>
+            <div class="gym-media-viewer-media-wrap">
+              <img id="gymMediaViewerImg" src="" alt="" loading="lazy" />
+            </div>
+            <ol id="gymMediaViewerInstructions" class="gym-media-viewer-instructions"></ol>
+          </div>
+        </div>
       </div>
     </div>
 

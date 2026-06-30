@@ -701,6 +701,83 @@ const gymTimerDisplay = document.getElementById('gymTimerDisplay');
 const gymTimerStart = document.getElementById('gymTimerStart');
 const gymTimerPause = document.getElementById('gymTimerPause');
 const gymTimerReset = document.getElementById('gymTimerReset');
+const gymTimerSection = document.getElementById('gymTimerSection');
+const gymTimerToggle = document.getElementById('gymTimerToggle');
+const gymTimerToggleHint = document.getElementById('gymTimerToggleHint');
+const gymMediaViewer = document.getElementById('gymMediaViewer');
+const gymMediaViewerImg = document.getElementById('gymMediaViewerImg');
+const gymMediaViewerTitle = document.getElementById('gymMediaViewerTitle');
+const gymMediaViewerInstructions = document.getElementById('gymMediaViewerInstructions');
+const gymMediaViewerClose = document.getElementById('gymMediaViewerClose');
+
+function isGymMobileLayout() {
+  return window.matchMedia('(max-width: 640px)').matches;
+}
+
+function setGymTimerPanelExpanded(expanded) {
+  if (!gymTimerSection || !gymTimerToggle) return;
+  gymTimerSection.classList.toggle('is-expanded', expanded);
+  gymTimerToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
+
+function updateGymTimerToggleHint() {
+  if (!gymTimerToggleHint) return;
+  if (gymTimerState !== 'idle' && gymTimerDisplay && !gymTimerDisplay.classList.contains('is-hidden')) {
+    gymTimerToggleHint.textContent = gymTimerDisplay.textContent;
+    gymTimerSection?.classList.add('is-timer-active');
+  } else {
+    gymTimerToggleHint.textContent = isGymMobileLayout() ? 'Toca para configurar' : '';
+    gymTimerSection?.classList.remove('is-timer-active');
+  }
+}
+
+function syncGymTimerPanelUI() {
+  if (!isGymMobileLayout()) {
+    setGymTimerPanelExpanded(true);
+    updateGymTimerToggleHint();
+    return;
+  }
+  setGymTimerPanelExpanded(gymTimerState !== 'idle');
+  updateGymTimerToggleHint();
+}
+
+function closeGymMediaViewer() {
+  if (!gymMediaViewer) return;
+  gymMediaViewer.classList.add('is-hidden');
+  gymMediaViewer.setAttribute('aria-hidden', 'true');
+  if (gymMediaViewerImg) {
+    gymMediaViewerImg.src = '';
+    gymMediaViewerImg.alt = '';
+  }
+  if (gymMediaViewerInstructions) {
+    gymMediaViewerInstructions.innerHTML = '';
+  }
+}
+
+function openGymMediaViewer(exercise) {
+  if (!exercise || !exercise.media || !gymMediaViewer) return;
+  if (gymMediaViewerTitle) {
+    gymMediaViewerTitle.textContent = exercise.name || 'Ejercicio';
+  }
+  if (gymMediaViewerImg) {
+    gymMediaViewerImg.src = exercise.media;
+    gymMediaViewerImg.alt = exercise.name ? `Demostracion de ${exercise.name}` : 'Demostracion de ejercicio';
+  }
+  if (gymMediaViewerInstructions) {
+    gymMediaViewerInstructions.innerHTML = '';
+    const steps = Array.isArray(exercise.instructions) && exercise.instructions.length
+      ? exercise.instructions
+      : ['Observa el movimiento completo y ejecuta el ejercicio de forma controlada.'];
+    steps.forEach((stepText) => {
+      const li = document.createElement('li');
+      li.textContent = String(stepText || '').replace(/^Step:\s*\d+\s*/i, '').trim();
+      gymMediaViewerInstructions.appendChild(li);
+    });
+  }
+  gymMediaViewer.classList.remove('is-hidden');
+  gymMediaViewer.setAttribute('aria-hidden', 'false');
+}
+
 const gymSaveBtn = document.getElementById('gymSaveBtn');
 const gymOpenStopwatchBtn = document.getElementById('gymOpenStopwatchBtn');
 const modalStopwatch = document.getElementById('modalStopwatch');
@@ -1165,6 +1242,7 @@ function updateGymTimerDisplay(options) {
       gymTimerDisplay.classList.add('gym-timer-pulse');
       setTimeout(() => gymTimerDisplay.classList.remove('gym-timer-pulse'), 250);
     }
+    updateGymTimerToggleHint();
     return;
   }
   if (gymTimerState === 'prep') {
@@ -1186,6 +1264,7 @@ function updateGymTimerDisplay(options) {
     gymTimerDisplay.classList.add('gym-timer-pulse');
     setTimeout(() => gymTimerDisplay.classList.remove('gym-timer-pulse'), 250);
   }
+  updateGymTimerToggleHint();
 }
 
 function gymTimerTick() {
@@ -1242,6 +1321,7 @@ function gymTimerStop() {
     gymTimerPause.classList.add('is-hidden');
     gymTimerPause.textContent = 'Pausar';
   }
+  syncGymTimerPanelUI();
 }
 
 function gymTimerPauseToggle() {
@@ -1276,13 +1356,47 @@ async function apiSaveGym(taskId, routine_text, duration_min, series, seconds_pe
 }
 
 // ========== Gym Wizard V2 ==========
-// Catálogo demo — ampliar luego con ExerciseDB / wger
+// Catálogo demo — ampliar con GIF/videos en /icons/gym/exercises/
 const GYM_EXERCISES_CATALOG = [
-  { id: 'bench-press', name: 'Press de banca', muscles: ['pecho'], equipment: ['barra'], icon: '🏋️' },
-  { id: 'dumbbell-row', name: 'Remo con mancuerna', muscles: ['espalda'], equipment: ['mancuernas'], icon: '🚣' },
-  { id: 'ohp', name: 'Press militar', muscles: ['hombros'], equipment: ['barra'], icon: '🙆' },
-  { id: 'bicep-curl', name: 'Curl de bíceps', muscles: ['biceps'], equipment: ['mancuernas'], icon: '💪' },
-  { id: 'tricep-ext', name: 'Extensión de tríceps', muscles: ['triceps'], equipment: ['mancuernas'], icon: '🔔' },
+  {
+    id: 'bench-press',
+    exerciseDbId: 'EIeI8Vf',
+    name: 'Press de banca',
+    muscles: ['pecho'],
+    equipment: ['barra'],
+    zones: ['superior'],
+    icon: '🏋️',
+    media: 'https://static.exercisedb.dev/media/EIeI8Vf.gif',
+    instructions: [
+      'Acuestate plano en un banco con los pies firmes en el suelo.',
+      'Toma la barra con agarre prono, un poco mas ancho que tus hombros.',
+      'Desmonta la barra y sostenla sobre el pecho con brazos extendidos.',
+      'Baja la barra de forma controlada hasta tocar el pecho.',
+      'Empuja la barra hacia arriba hasta volver al inicio.',
+    ],
+  },
+  { id: 'incline-db-press', name: 'Press inclinado', muscles: ['pecho'], equipment: ['mancuernas'], zones: ['superior'], icon: '📐' },
+  { id: 'chest-press-machine', name: 'Press pecho en máquina', muscles: ['pecho'], equipment: ['maquina'], zones: ['superior'], icon: '🦾' },
+  { id: 'cable-fly', name: 'Cruces en polea', muscles: ['pecho'], equipment: ['maquina'], zones: ['superior'], icon: '🪽' },
+  { id: 'pec-deck', name: 'Peck deck', muscles: ['pecho'], equipment: ['maquina'], zones: ['superior'], icon: '🤖' },
+  { id: 'barbell-row', name: 'Remo con barra', muscles: ['espalda'], equipment: ['barra'], zones: ['superior'], icon: '🚣' },
+  { id: 'seated-row', name: 'Remo en máquina', muscles: ['espalda'], equipment: ['maquina'], zones: ['superior'], icon: '⛓️' },
+  { id: 'lat-pulldown', name: 'Jalón al pecho', muscles: ['espalda'], equipment: ['maquina'], zones: ['superior'], icon: '⬇️' },
+  { id: 'assisted-pullup', name: 'Dominadas asistidas', muscles: ['espalda'], equipment: ['maquina'], zones: ['superior'], icon: '🆙' },
+  { id: 'dumbbell-row', name: 'Remo con mancuerna', muscles: ['espalda'], equipment: ['mancuernas'], zones: ['superior'], icon: '🏋️' },
+  { id: 'ohp', name: 'Press militar', muscles: ['hombros'], equipment: ['barra'], zones: ['superior'], icon: '🙆' },
+  { id: 'db-shoulder-press', name: 'Press hombro mancuernas', muscles: ['hombros'], equipment: ['mancuernas'], zones: ['superior'], icon: '💪' },
+  { id: 'shoulder-press-machine', name: 'Press hombro en máquina', muscles: ['hombros'], equipment: ['maquina'], zones: ['superior'], icon: '🎯' },
+  { id: 'lateral-raise', name: 'Elevaciones laterales', muscles: ['hombros'], equipment: ['mancuernas'], zones: ['superior'], icon: '🕊️' },
+  { id: 'face-pull', name: 'Face pull', muscles: ['hombros', 'espalda'], equipment: ['maquina'], zones: ['superior'], icon: '🎣' },
+  { id: 'bicep-curl', name: 'Curl de bíceps', muscles: ['biceps'], equipment: ['mancuernas'], zones: ['superior'], icon: '💪' },
+  { id: 'cable-curl', name: 'Curl en polea baja', muscles: ['biceps'], equipment: ['maquina'], zones: ['superior'], icon: '🔗' },
+  { id: 'preacher-curl', name: 'Curl predicador', muscles: ['biceps'], equipment: ['maquina'], zones: ['superior'], icon: '📎' },
+  { id: 'tricep-ext', name: 'Extensión de tríceps', muscles: ['triceps'], equipment: ['mancuernas'], zones: ['superior'], icon: '🔔' },
+  { id: 'tricep-pushdown', name: 'Pressdown en polea', muscles: ['triceps'], equipment: ['maquina'], zones: ['superior'], icon: '⏬' },
+  { id: 'skull-crusher', name: 'Press francés', muscles: ['triceps'], equipment: ['barra'], zones: ['superior'], icon: '💀' },
+  { id: 'cable-crunch', name: 'Crunch en polea', muscles: ['abdomen'], equipment: ['maquina'], zones: ['superior'], icon: '🧵' },
+  { id: 'ab-machine', name: 'Abdominales en máquina', muscles: ['abdomen'], equipment: ['maquina'], zones: ['superior'], icon: '🔩' },
 ];
 
 const GYM_MUSCLE_LABELS = {
@@ -1291,6 +1405,7 @@ const GYM_MUSCLE_LABELS = {
   hombros: 'Hombros',
   biceps: 'Bíceps',
   triceps: 'Tríceps',
+  abdomen: 'Abdomen',
 };
 
 const GYM_EQUIPMENT_LABELS = {
@@ -1317,20 +1432,24 @@ const gymWizardState = {
   step: 'category',
   category: null,
   zone: null,
+  addedExerciseIds: [],
   exercises: {},
 };
 
 const gymStepCategory = document.getElementById('gymStepCategory');
 const gymStepStrengthZone = document.getElementById('gymStepStrengthZone');
 const gymStepSession = document.getElementById('gymStepSession');
+const gymStepExercisePicker = document.getElementById('gymStepExercisePicker');
 const gymStepComingSoon = document.getElementById('gymStepComingSoon');
 const gymWizardBack = document.getElementById('gymWizardBack');
 const gymCategoryTitle = document.getElementById('gymCategoryTitle');
 const gymCategoryCarousel = document.getElementById('gymCategoryCarousel');
 const gymCategoryNext = document.getElementById('gymCategoryNext');
 const gymZoneNext = document.getElementById('gymZoneNext');
-const gymFilterMuscle = document.getElementById('gymFilterMuscle');
-const gymFilterEquipment = document.getElementById('gymFilterEquipment');
+const gymOpenExercisePicker = document.getElementById('gymOpenExercisePicker');
+const gymExerciseSearch = document.getElementById('gymExerciseSearch');
+const gymExercisePickerGrid = document.getElementById('gymExercisePickerGrid');
+const gymPickerDone = document.getElementById('gymPickerDone');
 const gymExerciseList = document.getElementById('gymExerciseList');
 const gymComingSoonText = document.getElementById('gymComingSoonText');
 const gymComingSoonBack = document.getElementById('gymComingSoonBack');
@@ -1339,10 +1458,8 @@ function resetGymWizardState() {
   gymWizardState.step = 'category';
   gymWizardState.category = null;
   gymWizardState.zone = null;
+  gymWizardState.addedExerciseIds = [];
   gymWizardState.exercises = {};
-  GYM_EXERCISES_CATALOG.forEach((ex) => {
-    gymWizardState.exercises[ex.id] = { series: '', reps: '', weight: '' };
-  });
   updateGymCategorySelectionUI();
   updateGymZoneSelectionUI();
 }
@@ -1361,6 +1478,7 @@ function showGymWizardStep(step) {
     category: gymStepCategory,
     strengthZone: gymStepStrengthZone,
     session: gymStepSession,
+    exercisePicker: gymStepExercisePicker,
     comingSoon: gymStepComingSoon,
   };
   Object.entries(steps).forEach(([key, el]) => {
@@ -1375,6 +1493,9 @@ function showGymWizardStep(step) {
   }
   if (step === 'strengthZone') {
     updateGymZoneSelectionUI();
+  }
+  if (step === 'session') {
+    syncGymTimerPanelUI();
   }
 }
 
@@ -1439,19 +1560,58 @@ function advanceFromGymZoneStep() {
   openGymComingSoon(`${GYM_ZONE_LABELS[zone] || 'Esta zona'} estará disponible en una próxima versión.`);
 }
 
+function getGymCatalogForZone(zone) {
+  if (!zone) return GYM_EXERCISES_CATALOG;
+  return GYM_EXERCISES_CATALOG.filter((ex) => !ex.zones || ex.zones.includes(zone));
+}
+
+function ensureGymExerciseData(exerciseId) {
+  if (!gymWizardState.exercises[exerciseId]) {
+    gymWizardState.exercises[exerciseId] = { series: '', reps: '', weight: '' };
+  }
+}
+
+function isGymExerciseAdded(exerciseId) {
+  return gymWizardState.addedExerciseIds.includes(exerciseId);
+}
+
+function addGymExerciseToSession(exerciseId) {
+  if (!exerciseId || isGymExerciseAdded(exerciseId)) return;
+  gymWizardState.addedExerciseIds.push(exerciseId);
+  ensureGymExerciseData(exerciseId);
+}
+
+function removeGymExerciseFromSession(exerciseId) {
+  gymWizardState.addedExerciseIds = gymWizardState.addedExerciseIds.filter((id) => id !== exerciseId);
+  syncGymHiddenFields();
+}
+
+function toggleGymExerciseInSession(exerciseId) {
+  if (isGymExerciseAdded(exerciseId)) {
+    removeGymExerciseFromSession(exerciseId);
+    return false;
+  }
+  addGymExerciseToSession(exerciseId);
+  return true;
+}
+
 function buildGymRoutineText() {
   const cat = GYM_CATEGORY_LABELS[gymWizardState.category] || gymWizardState.category || 'Entrenamiento';
   const zone = gymWizardState.zone ? (GYM_ZONE_LABELS[gymWizardState.zone] || gymWizardState.zone) : '';
-  const exerciseParts = GYM_EXERCISES_CATALOG.filter((ex) => {
-    const d = gymWizardState.exercises[ex.id];
-    return d && (d.series || d.reps || d.weight);
-  }).map((ex) => {
-    const d = gymWizardState.exercises[ex.id];
-    const s = d.series || '-';
-    const r = d.reps || '-';
-    const w = d.weight ? `${d.weight}kg` : '';
-    return `${ex.name} ${s}×${r}${w ? ' ' + w : ''}`.trim();
-  });
+  const exerciseParts = gymWizardState.addedExerciseIds
+    .map((id) => GYM_EXERCISES_CATALOG.find((ex) => ex.id === id))
+    .filter(Boolean)
+    .filter((ex) => {
+      const d = gymWizardState.exercises[ex.id];
+      return d && (d.series || d.reps || d.weight);
+    })
+    .map((ex) => {
+      const d = gymWizardState.exercises[ex.id];
+      const s = d.series || '-';
+      const r = d.reps || '-';
+      const w = d.weight ? `${d.weight}kg` : '';
+      return `${ex.name} ${s}×${r}${w ? ' ' + w : ''}`.trim();
+    });
   const head = zone ? `${cat} · ${zone}` : cat;
   return exerciseParts.length ? `${head} · ${exerciseParts.join(', ')}` : head;
 }
@@ -1463,21 +1623,18 @@ function syncGymHiddenFields() {
 
 function renderGymExerciseList() {
   if (!gymExerciseList) return;
-  const muscleFilter = gymFilterMuscle?.value || '';
-  const equipFilter = gymFilterEquipment?.value || '';
-  const filtered = GYM_EXERCISES_CATALOG.filter((ex) => {
-    if (muscleFilter && !ex.muscles.includes(muscleFilter)) return false;
-    if (equipFilter && !ex.equipment.includes(equipFilter)) return false;
-    return true;
-  });
 
   gymExerciseList.innerHTML = '';
-  if (!filtered.length) {
-    gymExerciseList.innerHTML = '<p class="gym-wizard-subtitle">No hay ejercicios con esos filtros.</p>';
+  const added = gymWizardState.addedExerciseIds
+    .map((id) => GYM_EXERCISES_CATALOG.find((ex) => ex.id === id))
+    .filter(Boolean);
+
+  if (!added.length) {
+    gymExerciseList.innerHTML = '<p class="gym-exercise-empty">Aún no has añadido ejercicios.<br />Pulsa <strong>Buscar ejercicio</strong> para armar tu rutina.</p>';
     return;
   }
 
-  filtered.forEach((ex) => {
+  added.forEach((ex) => {
     const data = gymWizardState.exercises[ex.id] || { series: '', reps: '', weight: '' };
     const card = document.createElement('article');
     card.className = 'gym-exercise-card';
@@ -1486,7 +1643,12 @@ function renderGymExerciseList() {
     const equipTags = ex.equipment.map((e) => GYM_EQUIPMENT_LABELS[e] || e).join(', ');
     card.innerHTML = `
       <div class="gym-exercise-head">
-        <div class="gym-exercise-thumb" aria-hidden="true">${ex.icon || '🏋️'}</div>
+        ${ex.media
+          ? `<button type="button" class="gym-exercise-thumb gym-exercise-thumb-btn has-media" aria-label="Ver como hacer ${ex.name}">
+              <img src="${ex.media}" alt="" loading="lazy" />
+              <span class="gym-exercise-thumb-play" aria-hidden="true">▶</span>
+            </button>`
+          : `<div class="gym-exercise-thumb" aria-hidden="true">${ex.icon || '🏋️'}</div>`}
         <div class="gym-exercise-meta">
           <h4 class="gym-exercise-name">${ex.name}</h4>
           <div class="gym-exercise-tags">
@@ -1494,6 +1656,7 @@ function renderGymExerciseList() {
             <span class="gym-exercise-tag">${equipTags}</span>
           </div>
         </div>
+        <button type="button" class="gym-exercise-remove" aria-label="Quitar ${ex.name}">×</button>
       </div>
       <div class="gym-exercise-fields">
         <div class="field">
@@ -1522,16 +1685,89 @@ function renderGymExerciseList() {
     card.querySelectorAll('.gym-ex-series, .gym-ex-reps, .gym-ex-weight').forEach((input) => {
       input.addEventListener('input', syncExercise);
     });
+    card.querySelector('.gym-exercise-remove')?.addEventListener('click', () => {
+      removeGymExerciseFromSession(ex.id);
+      renderGymExerciseList();
+    });
+    card.querySelector('.gym-exercise-thumb.has-media')?.addEventListener('click', () => {
+      openGymMediaViewer(ex);
+    });
     gymExerciseList.appendChild(card);
   });
 }
 
-function openGymSessionStep() {
-  showGymWizardStep('session');
-  if (gymFilterMuscle) gymFilterMuscle.value = '';
-  if (gymFilterEquipment) gymFilterEquipment.value = '';
+function gymExercisePickerMedia(ex) {
+  if (ex.media) {
+    return `<img src="${ex.media}" alt="" loading="lazy" />`;
+  }
+  return ex.icon || '🏋️';
+}
+
+function renderGymExercisePickerGrid() {
+  if (!gymExercisePickerGrid) return;
+  const query = (gymExerciseSearch?.value || '').trim().toLowerCase();
+  const zoneCatalog = getGymCatalogForZone(gymWizardState.zone);
+  const filtered = zoneCatalog.filter((ex) => {
+    if (!query) return true;
+    const muscleText = ex.muscles.map((m) => GYM_MUSCLE_LABELS[m] || m).join(' ');
+    const equipText = ex.equipment.map((e) => GYM_EQUIPMENT_LABELS[e] || e).join(' ');
+    const haystack = `${ex.name} ${muscleText} ${equipText}`.toLowerCase();
+    return haystack.includes(query);
+  });
+
+  gymExercisePickerGrid.innerHTML = '';
+  if (!filtered.length) {
+    gymExercisePickerGrid.innerHTML = '<p class="gym-picker-empty">No hay ejercicios con esa búsqueda.</p>';
+    return;
+  }
+
+  filtered.forEach((ex) => {
+    const selected = isGymExerciseAdded(ex.id);
+    const muscleLabel = ex.muscles.map((m) => GYM_MUSCLE_LABELS[m] || m)[0] || '';
+    const equipLabel = ex.equipment.map((e) => GYM_EQUIPMENT_LABELS[e] || e)[0] || '';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `gym-exercise-picker-tile${selected ? ' is-selected' : ''}`;
+    btn.dataset.exerciseId = ex.id;
+    btn.setAttribute('role', 'listitem');
+    btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    btn.innerHTML = `
+      <span class="gym-exercise-picker-media" aria-hidden="true">${gymExercisePickerMedia(ex)}</span>
+      <span class="gym-exercise-picker-name">${ex.name}</span>
+      <span class="gym-exercise-picker-meta">[${muscleLabel}] · ${equipLabel}</span>
+      ${selected ? '<span class="gym-exercise-picker-check" aria-hidden="true">✓</span>' : ''}
+    `;
+    btn.addEventListener('click', () => {
+      toggleGymExerciseInSession(ex.id);
+      renderGymExercisePickerGrid();
+    });
+    gymExercisePickerGrid.appendChild(btn);
+  });
+}
+
+function openGymExercisePickerStep() {
+  if (gymExerciseSearch) gymExerciseSearch.value = '';
+  const subtitle = document.querySelector('.gym-picker-subtitle');
+  if (subtitle) {
+    const zone = gymWizardState.zone ? (GYM_ZONE_LABELS[gymWizardState.zone] || gymWizardState.zone) : 'Entrenamiento';
+    subtitle.textContent = `${zone} · Toca para añadir a tu sesión`;
+  }
+  renderGymExercisePickerGrid();
+  showGymWizardStep('exercisePicker');
+  gymExerciseSearch?.focus();
+}
+
+function closeGymExercisePickerStep() {
   renderGymExerciseList();
   syncGymHiddenFields();
+  showGymWizardStep('session');
+}
+
+function openGymSessionStep() {
+  showGymWizardStep('session');
+  renderGymExerciseList();
+  syncGymHiddenFields();
+  syncGymTimerPanelUI();
 }
 
 function openGymComingSoon(message) {
@@ -1541,6 +1777,10 @@ function openGymComingSoon(message) {
 
 function gymWizardGoBack() {
   gymTimerStop();
+  if (gymWizardState.step === 'exercisePicker') {
+    closeGymExercisePickerStep();
+    return;
+  }
   if (gymWizardState.step === 'session' || gymWizardState.step === 'comingSoon') {
     if (gymWizardState.category === 'fuerza') {
       showGymWizardStep('strengthZone');
@@ -1573,10 +1813,12 @@ function wireGymWizardEvents() {
 
   gymZoneNext?.addEventListener('click', advanceFromGymZoneStep);
 
+  gymOpenExercisePicker?.addEventListener('click', openGymExercisePickerStep);
+  gymPickerDone?.addEventListener('click', closeGymExercisePickerStep);
+  gymExerciseSearch?.addEventListener('input', renderGymExercisePickerGrid);
+
   gymWizardBack?.addEventListener('click', gymWizardGoBack);
   gymComingSoonBack?.addEventListener('click', gymWizardGoBack);
-  gymFilterMuscle?.addEventListener('change', renderGymExerciseList);
-  gymFilterEquipment?.addEventListener('change', renderGymExerciseList);
 }
 
 wireGymWizardEvents();
@@ -1617,6 +1859,7 @@ function openModalGym(task) {
 
 function closeModalGym() {
   gymTimerStop();
+  closeGymMediaViewer();
   if (modalGym) {
     modalGym.classList.add('is-hidden');
     modalGym.setAttribute('aria-hidden', 'true');
@@ -1974,6 +2217,7 @@ if (gymTimerStart) {
         gymTimerPause.textContent = 'Pausar';
       }
       updateGymTimerDisplay({ pulse: true });
+      if (isGymMobileLayout()) setGymTimerPanelExpanded(true);
       gymTimerIntervalId = setInterval(gymTimerTick, 1000);
     }
   });
@@ -1982,6 +2226,18 @@ if (gymTimerPause) gymTimerPause.addEventListener('click', gymTimerPauseToggle);
 if (gymTimerReset) {
   gymTimerReset.addEventListener('click', () => {
     gymTimerStop();
+  });
+}
+if (gymTimerToggle) {
+  gymTimerToggle.addEventListener('click', () => {
+    const expanded = gymTimerSection?.classList.contains('is-expanded');
+    setGymTimerPanelExpanded(!expanded);
+  });
+}
+if (gymMediaViewerClose) gymMediaViewerClose.addEventListener('click', closeGymMediaViewer);
+if (gymMediaViewer) {
+  gymMediaViewer.addEventListener('click', (e) => {
+    if (e.target === gymMediaViewer) closeGymMediaViewer();
   });
 }
 
